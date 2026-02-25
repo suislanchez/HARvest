@@ -311,18 +311,6 @@ export default function Home() {
           {/* Empty state: capability stats + tips */}
           {!harData.hasData && (
             <div className="space-y-4 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { value: '71', label: 'Blocked domains' },
-                  { value: '5', label: 'Output languages' },
-                  { value: '8', label: 'Filter layers' },
-                ].map((stat) => (
-                  <div key={stat.label} className="bg-zinc-100 dark:bg-zinc-900 rounded-lg p-4 text-center">
-                    <p className="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-100">{stat.value}</p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
               <Card>
                 <CardContent className="pt-4 pb-4">
                   <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-3">Tips</p>
