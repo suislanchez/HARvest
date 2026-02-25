@@ -338,3 +338,4 @@ npm run build
 | [10-OBSERVABILITY.md](./docs/10-OBSERVABILITY.md) | Research: structured logging, request tracing, metrics, health checks |
 | [11-HAR-SIZE-LIMITS-AND-STREAMING.md](./docs/11-HAR-SIZE-LIMITS-AND-STREAMING.md) | Research: memory limits, streaming JSON parsers, chunked processing |
 | [13-complete-test-suite-overview.md](./docs/13-complete-test-suite-overview.md) | Complete test inventory: 334 tests across 15 files |
+| [14-ARCHITECTURE-DIAGRAMS.md](./docs/14-ARCHITECTURE-DIAGRAMS.md) | 18 Mermaid diagrams: system architecture, pipelines, security, tests |
