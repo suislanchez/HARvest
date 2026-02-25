@@ -155,8 +155,24 @@ export class HarParserService {
   }
 
   /**
+   * Parameterize a URL path by replacing dynamic segments (numeric IDs, UUIDs)
+   * with placeholders. Used for deduplication and display.
+   */
+  parameterizePath(urlPath: string): string {
+    // Replace UUID-like segments
+    urlPath = urlPath.replace(
+      /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\/|$|\?)/gi,
+      '/{id}',
+    );
+    // Replace numeric path segments: /users/123 → /users/{id}
+    urlPath = urlPath.replace(/\/\d+(?=\/|$|\?)/g, '/{id}');
+    return urlPath;
+  }
+
+  /**
    * Generate a grouped, token-efficient summary string for LLM consumption.
    * Entries are grouped by hostname with auth info and compact formatting.
+   * Duplicate requests (same method + parameterized path) are collapsed with a count.
    */
   generateLlmSummary(entries: Entry[], totalCount: number): string {
     // Group entries by hostname
@@ -199,17 +215,53 @@ export class HarParserService {
     });
 
     const lines: string[] = [];
-    lines.push(`=== HAR Analysis: ${entries.length} API requests from ${totalCount} total ===`);
-    lines.push('');
+    let dedupedCount = 0;
 
     for (const [hostname, group] of groups) {
+      // Deduplicate entries by method + parameterized path within each host group.
+      // The first occurrence becomes the representative; duplicates are counted.
+      const seen = new Map<string, { count: number; entryIdx: number }>();
+      const uniqueIndices: number[] = [];
+
+      group.entries.forEach((entry, groupIdx) => {
+        const req = entry.request;
+        let paramPath: string;
+        try {
+          const parsed = new URL(req.url);
+          paramPath = this.parameterizePath(parsed.pathname);
+        } catch {
+          paramPath = req.url;
+        }
+        // For GraphQL and similar endpoints, differentiate by operationName in the body
+        let bodyDiscriminator = '';
+        if (req.postData?.text) {
+          try {
+            const body = JSON.parse(req.postData.text);
+            if (body.operationName) {
+              bodyDiscriminator = `:${body.operationName}`;
+            }
+          } catch {
+            // Not JSON, ignore
+          }
+        }
+        const dedupKey = `${req.method} ${paramPath}${bodyDiscriminator}`;
+
+        if (!seen.has(dedupKey)) {
+          seen.set(dedupKey, { count: 1, entryIdx: groupIdx });
+          uniqueIndices.push(groupIdx);
+        } else {
+          seen.get(dedupKey)!.count++;
+        }
+      });
+
       // Group header
       const countLabel = group.entries.length === 1 ? '1 request' : `${group.entries.length} requests`;
       const authLabel = group.authType ? `, Auth: ${group.authType}` : '';
       lines.push(`[${hostname}] (${countLabel}${authLabel})`);
 
-      // Each entry in the group
-      group.entries.forEach((entry, groupIdx) => {
+      // Only unique entries in the group
+      for (const groupIdx of uniqueIndices) {
+        const entry = group.entries[groupIdx];
         const globalIndex = group.indices[groupIdx];
         const req = entry.request;
         const res = entry.response;
@@ -219,8 +271,7 @@ export class HarParserService {
         try {
           const parsed = new URL(req.url);
           urlPath = parsed.pathname + parsed.search;
-          // Parameterize numeric path segments: /users/123 → /users/{id}
-          urlPath = urlPath.replace(/\/\d+(?=\/|$|\?)/g, '/{id}');
+          urlPath = this.parameterizePath(urlPath);
         } catch {
           urlPath = req.url;
         }
@@ -245,8 +296,27 @@ export class HarParserService {
         const size = res.content?.size || res.bodySize || 0;
         const sizeStr = size > 0 ? ` (${this.formatSize(size)})` : '';
 
+        // Duplicate count annotation
+        let paramPath: string;
+        try {
+          const parsed = new URL(req.url);
+          paramPath = this.parameterizePath(parsed.pathname);
+        } catch {
+          paramPath = req.url;
+        }
+        let bodyDisc2 = '';
+        if (req.postData?.text) {
+          try {
+            const body = JSON.parse(req.postData.text);
+            if (body.operationName) bodyDisc2 = `:${body.operationName}`;
+          } catch { /* */ }
+        }
+        const dedupKey = `${req.method} ${paramPath}${bodyDisc2}`;
+        const dupCount = seen.get(dedupKey)!.count;
+        const dupLabel = dupCount > 1 ? ` (×${dupCount})` : '';
+
         // Build the line
-        let line = `  ${globalIndex}. ${req.method} ${urlPath} → ${res.status} ${shortMime}${sizeStr}`;
+        let line = `  ${globalIndex}. ${req.method} ${urlPath} → ${res.status} ${shortMime}${sizeStr}${dupLabel}`;
 
         // Request body preview (for POST/PUT/PATCH)
         if (req.postData?.text) {
@@ -262,12 +332,18 @@ export class HarParserService {
         }
 
         lines.push(line);
-      });
+        dedupedCount++;
+      }
 
       lines.push('');
     }
 
-    return lines.join('\n').trim();
+    // Header line shows unique count when dedup removed entries
+    const headerLine = dedupedCount < entries.length
+      ? `=== HAR Analysis: ${dedupedCount} unique API requests (${entries.length} total, duplicates collapsed) from ${totalCount} raw entries ===`
+      : `=== HAR Analysis: ${entries.length} API requests from ${totalCount} total ===`;
+
+    return [headerLine, '', ...lines].join('\n').trim();
   }
 
   private formatSize(bytes: number): string {
