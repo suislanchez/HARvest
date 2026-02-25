@@ -7,6 +7,8 @@ export interface LlmMatchResult {
   confidence: number;
   reason: string;
   topMatches: Array<{ index: number; confidence: number; reason: string }>;
+  promptTokens: number;
+  completionTokens: number;
 }
 
 @Injectable()
@@ -102,6 +104,8 @@ Identify the best matching request(s). Return JSON only.`;
       confidence: validMatches[0].confidence,
       reason: validMatches[0].reason,
       topMatches: validMatches,
+      promptTokens: response.usage?.prompt_tokens ?? 0,
+      completionTokens: response.usage?.completion_tokens ?? 0,
     };
   }
 }

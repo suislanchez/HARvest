@@ -706,7 +706,7 @@ function getFixtureData(fixture: string) {
   const har = harParser.parseHar(fileBuffer as unknown as Buffer);
   const allEntries = har.log.entries;
   const filtered = harParser.filterApiRequests(allEntries);
-  const llmSummary = harParser.generateLlmSummary(filtered, allEntries.length);
+  const { summary: llmSummary } = harParser.generateLlmSummary(filtered, allEntries.length);
 
   const data = { allEntries, filtered, llmSummary };
   fixtureCache.set(fixture, data);

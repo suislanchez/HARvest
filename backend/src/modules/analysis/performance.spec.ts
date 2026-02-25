@@ -61,7 +61,7 @@ describe('Performance / Stress tests', () => {
   it('should generate LLM summary for 1000 entries under 500ms', () => {
     const entries = Array.from({ length: 1000 }, (_, i) => makeEntry(i));
     const start = performance.now();
-    const result = service.generateLlmSummary(entries, 1000);
+    const { summary: result } = service.generateLlmSummary(entries, 1000);
     const elapsed = performance.now() - start;
 
     expect(result.length).toBeGreaterThan(0);
@@ -75,7 +75,7 @@ describe('Performance / Stress tests', () => {
     (entry.response.content as any).size = largeBody.length;
 
     const start = performance.now();
-    const result = service.generateLlmSummary([entry], 1);
+    const { summary: result } = service.generateLlmSummary([entry], 1);
     const elapsed = performance.now() - start;
 
     expect(result).not.toContain('x'.repeat(200));

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Terminal, Github, History } from 'lucide-react';
+import { Braces, Github, History, Info } from 'lucide-react';
 import { FileUpload } from '@/components/file-upload';
 import { HarInspector } from '@/components/har-inspector';
 import { DescriptionInput } from '@/components/description-input';
@@ -12,6 +12,8 @@ import { HowItWorks } from '@/components/how-it-works';
 import { PipelineStats } from '@/components/pipeline-stats';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CollectionSidebar } from '@/components/collection-sidebar';
+import { TechDeepDive } from '@/components/tech-deep-dive';
+import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
 import { useHarData } from '@/hooks/use-har-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -65,7 +67,7 @@ function PipelineStepper({ currentStep }: { currentStep: number }) {
             return (
               <div key={label} className="flex items-center gap-3">
                 {isDone ? (
-                  <div className="h-5 w-5 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs">
+                  <div className="h-5 w-5 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs animate-checkmark">
                     &#10003;
                   </div>
                 ) : isCurrent ? (
@@ -95,6 +97,8 @@ export default function Home() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [editedCurl, setEditedCurl] = useState<string | null>(null);
   const [collectionOpen, setCollectionOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   // The curl to display/execute: edited version or original from result
   const activeCurl = editedCurl ?? result?.curl ?? '';
 
@@ -117,6 +121,20 @@ export default function Home() {
     const t2 = setTimeout(() => setPipelineStep(2), 700);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [isAnalyzing]);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.key === '?') { e.preventDefault(); setShortcutsOpen(v => !v); }
+      if (e.key === 'h' || e.key === 'H') { e.preventDefault(); setCollectionOpen(v => !v); }
+      if (e.key === 'i' || e.key === 'I') { e.preventDefault(); setInfoOpen(v => !v); }
+      if (e.key === 'Escape') { setCollectionOpen(false); setInfoOpen(false); setShortcutsOpen(false); }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleFileLoad = useCallback((file: File, har: any) => {
     harData.loadHar(file, har);
@@ -152,6 +170,10 @@ export default function Home() {
       const data: AnalysisResult = await res.json();
       setPipelineStep(4);
       setResult(data);
+
+      setTimeout(() => {
+        document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
 
       // Auto-save to collection
       saveToCollection({
@@ -225,7 +247,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto px-4 h-12 flex items-center justify-between">
           <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-            <Terminal className="h-4 w-4" />
+            <Braces className="h-4 w-4" />
             <span className="font-semibold text-sm">HAR Reverse Engineer</span>
           </div>
           <div className="flex items-center gap-1">
@@ -234,9 +256,18 @@ export default function Home() {
               size="sm"
               className="h-8 w-8 px-0"
               onClick={() => setCollectionOpen(true)}
-              title="History"
+              title="History (H)"
             >
               <History className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 px-0"
+              onClick={() => setInfoOpen(true)}
+              title="Tech Info (I)"
+            >
+              <Info className="h-4 w-4" />
             </Button>
             <ThemeToggle />
             <Button variant="ghost" size="sm" className="h-8 w-8 px-0" asChild>
@@ -266,7 +297,7 @@ export default function Home() {
           )}
 
           {/* Step 1: Upload */}
-          <Card>
+          <Card className="animate-fade-in-up">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">
                 {harData.hasData ? 'HAR File' : '1. Upload HAR File'}
@@ -277,9 +308,50 @@ export default function Home() {
             </CardContent>
           </Card>
 
+          {/* Empty state: capability stats + tips */}
+          {!harData.hasData && (
+            <div className="space-y-4 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { value: '71', label: 'Blocked domains' },
+                  { value: '5', label: 'Output languages' },
+                  { value: '8', label: 'Filter layers' },
+                ].map((stat) => (
+                  <div key={stat.label} className="bg-zinc-100 dark:bg-zinc-900 rounded-lg p-4 text-center">
+                    <p className="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-100">{stat.value}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-3">Tips</p>
+                  <ul className="space-y-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <li className="flex gap-2">
+                      <span className="shrink-0">1.</span>
+                      <span>Open DevTools &rarr; Network tab &rarr; right-click &rarr; <strong className="text-zinc-700 dark:text-zinc-300">Export HAR with content</strong></span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="shrink-0">2.</span>
+                      <span>Be specific: &ldquo;Spotify playlist fetch API&rdquo; &gt; &ldquo;playlist&rdquo;</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="shrink-0">3.</span>
+                      <span>Analytics, tracking, and CDN requests are auto-filtered</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="shrink-0">4.</span>
+                      <span>Press <kbd className="px-1 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded text-[10px] font-mono">{typeof window !== 'undefined' && /Mac/.test(navigator.userAgent) ? '\u2318' : 'Ctrl+'}Enter</kbd> for quick analyze</span>
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Step 2: Inspect */}
           {harData.hasData && (
-            <Card>
+            <Card className="animate-fade-in-up" style={{ animationDelay: '100ms' }}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">2. HAR Inspector</CardTitle>
@@ -294,7 +366,7 @@ export default function Home() {
 
           {/* Step 3: Describe */}
           {harData.hasData && (
-            <Card>
+            <Card className="animate-fade-in-up" style={{ animationDelay: '200ms' }}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">3. Describe the API</CardTitle>
               </CardHeader>
@@ -320,7 +392,7 @@ export default function Home() {
 
           {/* Results */}
           {result && (
-            <div className="space-y-4">
+            <div id="results-section" className="space-y-4 animate-fade-in-up">
               <PipelineStats stats={result.stats} />
               <CurlOutput
                 curl={activeCurl}
@@ -371,6 +443,12 @@ export default function Home() {
         onClose={() => setCollectionOpen(false)}
         onSelect={handleCollectionSelect}
       />
+
+      {/* Tech Deep Dive Modal */}
+      <TechDeepDive isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcuts isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       {/* Footer */}
       <footer className="border-t border-zinc-200 dark:border-zinc-800 py-4">

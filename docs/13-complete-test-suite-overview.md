@@ -20,7 +20,10 @@
 | **Real-World Eval** | `eval-real-world.spec.ts` | **5** | **Real OpenAI + Real APIs** | **5/5 pass** |
 | **E2E Live APIs** | `e2e-live.spec.ts` | **33** | **Real OpenAI + Real APIs** | **32/33 pass (1 skipped)** |
 | **E2E Expanded APIs** | `e2e-live-expanded.spec.ts` | **24** | **Real OpenAI + Real APIs** | **24/24 pass** |
-| **Total** | **12 files** | **~297** | | |
+| **E2E Pipeline** | `e2e-pipeline.spec.ts` | **~12** | **Real OpenAI + Real APIs** | **Full analyzeHar() pipeline + curl execution** |
+| **E2E HTTP** | `e2e-http.spec.ts` | **~10** | **Real OpenAI + Real APIs** | **Multipart HTTP upload + execute** |
+| **E2E Stress** | `e2e-stress.spec.ts` | **~10** | **Real OpenAI + Real APIs** | **Concurrent, large, edge cases** |
+| **Total** | **15 files** | **~329** | | |
 
 ---
 
@@ -531,7 +534,147 @@ Multiple real APIs in a single HAR, LLM must pick the correct one.
 
 ---
 
-## 7. Running the Tests
+## 7. E2E Pipeline Tests — ~12 tests (Real OpenAI + Full Pipeline + Curl Execution)
+
+**File:** `backend/src/modules/analysis/e2e-pipeline.spec.ts`
+
+Tests the EXACT same entry point the controller uses: `AnalysisService.analyzeHar(buffer, description)`. This exercises the full pipeline (parse → filter → deduplicate → summarize → LLM match → curl gen), then EXECUTES the returned curl against live APIs.
+
+### Assignment HAR files → full pipeline + execution
+
+| # | Test | HAR File | What's Verified |
+|---|---|---|---|
+| 1 | JokeAPI full pipeline | `jokes-real.har` | analyzeHar() → match jokeapi.dev → execute curl → 5 jokes returned |
+| 2 | SFGate weather pipeline | `sfgate.har` | analyzeHar() → match forecast7.com → execute curl → weather data |
+| 3 | RecipeScal pipeline | `recipescal.har` | analyzeHar() → match recipescal.com/api/bookapi → POST with newData |
+
+### Synthetic HAR validation
+
+| # | Test | HAR File | What's Verified |
+|---|---|---|---|
+| 4 | GraphQL app | `graphql-app.har` | Matches GraphQL endpoint |
+| 5 | E-commerce search | `ecommerce.har` | Matches product API |
+| 6 | SPA dashboard | `spa-dashboard.har` | Matches dashboard data API |
+
+### Captured browser HARs (if available)
+
+| # | Test | Captured File | Execution |
+|---|---|---|---|
+| 7 | Open-Meteo Weather | `open-meteo-weather.har` | Match + execute → 200 |
+| 8 | USGS Earthquakes | `usgs-earthquakes.har` | Match + execute → 200 |
+| 9 | PokeAPI | `pokeapi-pokemon.har` | Match + execute → 200 |
+| 10 | Hacker News | `hackernews-firebase.har` | Match only |
+| 11 | Dog CEO | `dog-ceo-random.har` | Match + execute → 200 |
+| 12 | JSONPlaceholder | `jsonplaceholder-todos.har` | Match + execute → 200 |
+
+### Pipeline invariants
+
+- All required fields present with correct types
+- Static-only HAR → throws "No API requests found"
+- Invalid JSON → throws parse error
+
+---
+
+## 8. E2E HTTP Integration Tests — ~10 tests (Real OpenAI + Multipart Upload)
+
+**File:** `backend/src/modules/analysis/e2e-http.spec.ts`
+
+Spins up the actual NestJS HTTP server via `TestingModule` and tests multipart file upload — the EXACT same path the frontend uses.
+
+### Real HAR uploads via HTTP
+
+| # | Test | HAR File | HTTP Status | Curl Execution |
+|---|---|---|---|---|
+| 1 | jokes-real.har upload | `jokes-real.har` | 201 | Execute → 200, 5 jokes |
+| 2 | sfgate.har upload | `sfgate.har` | 201 | Execute → 200, weather data |
+| 3 | recipescal.har upload | `recipescal.har` | 201 | Validates recipe API match |
+
+### Captured browser HAR uploads
+
+| # | Test | File | What's Verified |
+|---|---|---|---|
+| 4 | Open-Meteo upload | `open-meteo-weather.har` | 201 + curl execution |
+| 5 | USGS upload | `usgs-earthquakes.har` | 201 + curl execution |
+| 6 | JSONPlaceholder upload | `jsonplaceholder-todos.har` | 201 + curl execution |
+
+### HTTP error handling
+
+| # | Test | Input | Expected |
+|---|---|---|---|
+| 7 | No file uploaded | Missing file | 400 |
+| 8 | Description too short | 2 chars | 400 |
+| 9 | Invalid JSON file | Garbage data | 400 |
+| 10 | Non-.har extension | .txt file | 400 |
+
+---
+
+## 9. E2E Stress Tests — ~10 tests (Concurrent, Load, Edge Cases)
+
+**File:** `backend/src/modules/analysis/e2e-stress.spec.ts`
+
+Simulates what a company tester does: throw many HARs at the system, test concurrency, large files, rapid requests, and edge cases.
+
+### Concurrent uploads
+
+| # | Test | What's Verified |
+|---|---|---|
+| 1 | 5 HARs analyzed in parallel via service | ≥80% succeed, all results valid shape |
+| 2 | 3 concurrent HTTP uploads via POST | ≥2 return 201 |
+
+### Large file handling
+
+| # | Test | What's Verified |
+|---|---|---|
+| 3 | jokes-large.har (87MB) via service | Completes, matches jokeapi.dev |
+| 4 | 500+ synthetic entries | Filters noise, matches target API |
+
+### Rapid sequential requests
+
+| # | Test | What's Verified |
+|---|---|---|
+| 5 | 5 rapid sequential HTTP uploads | All return 201, all find jokeapi.dev |
+
+### Edge cases
+
+| # | Test | What's Verified |
+|---|---|---|
+| 6 | HAR with zero entries | Throws error |
+| 7 | Only static assets (CSS/PNG/fonts) | Throws "No API requests found" |
+| 8 | Single API entry HAR | Still works correctly |
+| 9 | Very long description (4000 chars) | Handles gracefully |
+| 10 | Unicode description | Handles gracefully |
+| 11 | Empty HAR via HTTP | Returns 4xx/5xx |
+
+### Consistency
+
+| # | Test | What's Verified |
+|---|---|---|
+| 12 | Same input 3 times → same URL | Deterministic matching |
+
+---
+
+## 10. HAR Capture Script
+
+**File:** `test-fixtures/capture-real-hars.ts`
+
+Playwright script that automates real browser visits and exports HAR files to `test-fixtures/captured/` (gitignored).
+
+| Target | URL | API Captured |
+|---|---|---|
+| Open-Meteo Weather | open-meteo.com/en/docs | `/v1/forecast` |
+| USGS Earthquakes | earthquake.usgs.gov/earthquakes/map | `/fdsnws/` |
+| PokeAPI | pokeapi.co | `/api/v2/pokemon/` |
+| Hacker News | news.ycombinator.com | Firebase API |
+| Dog CEO | dog.ceo/dog-api | `/api/breeds/image/random` |
+| JSONPlaceholder | jsonplaceholder.typicode.com | `/todos`, `/posts`, `/users` |
+
+```bash
+npx playwright install chromium && npx ts-node test-fixtures/capture-real-hars.ts
+```
+
+---
+
+## 11. Running the Tests
 
 ```bash
 cd backend
@@ -554,13 +697,22 @@ npx jest e2e-live.spec --testTimeout=60000 --verbose
 # E2E expanded — 24 tests with 10 more APIs (requires OPENAI_API_KEY, ~35s)
 npx jest e2e-live-expanded --testTimeout=60000 --verbose
 
+# E2E pipeline — full analyzeHar() + curl execution (requires OPENAI_API_KEY, ~2min)
+npx jest e2e-pipeline --testTimeout=120000 --verbose
+
+# E2E HTTP — multipart upload through NestJS (requires OPENAI_API_KEY, ~2min)
+npx jest e2e-http --testTimeout=120000 --verbose
+
+# E2E stress — concurrent, large, edge cases (requires OPENAI_API_KEY, ~5min)
+npx jest e2e-stress --testTimeout=300000 --verbose
+
 # Everything at once
 npx jest --testTimeout=120000 --verbose
 ```
 
 ---
 
-## 8. Known Limitations
+## 12. Known Limitations
 
 1. **GraphQL same-URL dedup** — When two GraphQL queries hit the same URL with the same method, the dedup logic collapses them into one summary line with `(×2)`, hiding the second query body from the LLM. The eval suite handles this via HAR fixtures that include `operationName`, but the e2e-live test skips this case.
 

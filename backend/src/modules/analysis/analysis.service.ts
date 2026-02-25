@@ -24,7 +24,15 @@ export interface AnalysisResult {
   stats: {
     totalRequests: number;
     filteredRequests: number;
-    tokenEstimate: number;
+    uniqueRequests: number;
+    promptTokens: number;
+    completionTokens: number;
+    cost: number;
+    processingTime: {
+      total: number;
+      parsing: number;
+      llm: number;
+    };
   };
   allRequests: Array<{
     method: string;
@@ -49,7 +57,10 @@ export class AnalysisService {
     fileBuffer: Buffer,
     description: string,
   ): Promise<AnalysisResult> {
+    const totalStart = performance.now();
+
     // Step 1: Parse HAR
+    const parseStart = performance.now();
     const har = this.harParser.parseHar(fileBuffer);
     const allEntries = har.log.entries;
     this.logger.log(`Parsed HAR with ${allEntries.length} total entries`);
@@ -68,22 +79,25 @@ export class AnalysisService {
 
     // Step 3: Summarize for LLM
     const summaries = this.harParser.summarizeEntries(filtered);
-    const llmSummary = this.harParser.generateLlmSummary(filtered, allEntries.length);
+    const { summary: llmSummary, uniqueCount } = this.harParser.generateLlmSummary(filtered, allEntries.length);
+    const parseEnd = performance.now();
 
-    // Estimate tokens (~4 chars per token + ~200 for prompt)
-    const tokenEstimate = llmSummary.length / 4 + 200;
-    this.logger.log(`Estimated token usage: ~${Math.round(tokenEstimate)}`);
+    this.logger.log(`Unique requests after dedup: ${uniqueCount}`);
 
     // Step 4: LLM matching
+    const llmStart = performance.now();
     const llmResult: LlmMatchResult = await this.openai.identifyApiRequest(
       llmSummary,
       description,
       filtered.length,
     );
+    const llmEnd = performance.now();
 
     // Step 5: Get the matched entry and generate curl
     const matchedEntry = filtered[llmResult.matchIndex];
     const curl = this.harToCurl.generateCurl(matchedEntry);
+
+    const totalEnd = performance.now();
 
     // Build top matches with request info
     const topMatchesWithInfo = llmResult.topMatches.map((m) => {
@@ -106,6 +120,11 @@ export class AnalysisService {
       time: entry.time || 0,
     }));
 
+    // Compute cost: GPT-4o-mini pricing ($0.15/M input, $0.60/M output)
+    const cost =
+      (llmResult.promptTokens * 0.15) / 1_000_000 +
+      (llmResult.completionTokens * 0.60) / 1_000_000;
+
     return {
       curl,
       matchedRequest: {
@@ -120,7 +139,15 @@ export class AnalysisService {
       stats: {
         totalRequests: allEntries.length,
         filteredRequests: filtered.length,
-        tokenEstimate: Math.round(tokenEstimate),
+        uniqueRequests: uniqueCount,
+        promptTokens: llmResult.promptTokens,
+        completionTokens: llmResult.completionTokens,
+        cost: Math.round(cost * 1_000_000) / 1_000_000, // 6 decimal places
+        processingTime: {
+          total: Math.round(totalEnd - totalStart),
+          parsing: Math.round(parseEnd - parseStart),
+          llm: Math.round(llmEnd - llmStart),
+        },
       },
       allRequests,
     };

@@ -431,7 +431,7 @@ describe('HarParserService', () => {
         makeEntry({ url: 'https://api.example.com/posts' }),
         makeEntry({ url: 'https://other-api.io/items' }),
       ];
-      const result = service.generateLlmSummary(entries, 10);
+      const { summary: result } = service.generateLlmSummary(entries, 10);
       expect(result).toContain('[api.example.com]');
       expect(result).toContain('[other-api.io]');
     });
@@ -443,7 +443,7 @@ describe('HarParserService', () => {
           headers: [{ name: 'Authorization', value: 'Bearer eyJhbGciOiJIUzI1NiJ9' }],
         }),
       ];
-      const result = service.generateLlmSummary(entries, 5);
+      const { summary: result } = service.generateLlmSummary(entries, 5);
       expect(result).toContain('Auth: Bearer ***');
     });
 
@@ -454,7 +454,7 @@ describe('HarParserService', () => {
           headers: [{ name: 'x-api-key', value: 'sk-secret-key-12345' }],
         }),
       ];
-      const result = service.generateLlmSummary(entries, 5);
+      const { summary: result } = service.generateLlmSummary(entries, 5);
       expect(result).toContain('Auth: API-Key ***');
     });
 
@@ -464,13 +464,13 @@ describe('HarParserService', () => {
         makeEntry({ url: 'https://api.example.com/b' }),
         makeEntry({ url: 'https://api.example.com/c' }),
       ];
-      const result = service.generateLlmSummary(entries, 10);
+      const { summary: result } = service.generateLlmSummary(entries, 10);
       expect(result).toContain('3 requests');
     });
 
     it('should parameterize numeric path segments (/users/123 → /users/{id})', () => {
       const entry = makeEntry({ url: 'https://api.example.com/users/123/posts/456' });
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       expect(result).toContain('/users/{id}/posts/{id}');
       expect(result).not.toContain('/123');
       expect(result).not.toContain('/456');
@@ -481,7 +481,7 @@ describe('HarParserService', () => {
         url: 'https://api.example.com/data',
         responseMimeType: 'application/json',
       });
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       // Should contain "json" but NOT "application/json" in the entry line
       const entryLine = result.split('\n').find((l) => l.includes('/data'));
       expect(entryLine).toBeDefined();
@@ -494,7 +494,7 @@ describe('HarParserService', () => {
         url: 'https://api.example.com/data',
         responseSize: 2048,
       });
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       expect(result).toContain('2.0KB');
     });
 
@@ -503,7 +503,7 @@ describe('HarParserService', () => {
         url: 'https://api.example.com/data',
         responseText: '{"users":[{"id":1,"name":"Alice"}]}',
       });
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       expect(result).toContain('preview: {"users":[{"id":1,"name":"Alice"}]}');
     });
 
@@ -513,13 +513,13 @@ describe('HarParserService', () => {
         url: 'https://api.example.com/search',
         postData: { mimeType: 'application/json', text: '{"query":"hello world"}' },
       });
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       expect(result).toContain('body: {"query":"hello world"}');
     });
 
     it('should show header line with total count vs filtered count', () => {
       const entries = [makeEntry({ url: 'https://api.example.com/data' })];
-      const result = service.generateLlmSummary(entries, 50);
+      const { summary: result } = service.generateLlmSummary(entries, 50);
       expect(result).toContain('1 API requests from 50 total');
     });
 
@@ -530,7 +530,7 @@ describe('HarParserService', () => {
         makeEntry({ url: 'https://api.example.com/users/3' }),
         makeEntry({ url: 'https://api.example.com/posts' }),
       ];
-      const result = service.generateLlmSummary(entries, 10);
+      const { summary: result } = service.generateLlmSummary(entries, 10);
       // Should show ×3 for the deduplicated users/{id} group
       expect(result).toContain('(×3)');
       // Should only show one /users/{id} line, not three
@@ -547,7 +547,7 @@ describe('HarParserService', () => {
         makeEntry({ url: 'https://api.example.com/items/100' }),
         makeEntry({ url: 'https://api.example.com/items/200' }),
       ];
-      const result = service.generateLlmSummary(entries, 5);
+      const { summary: result } = service.generateLlmSummary(entries, 5);
       // The first entry (index 0) should be the representative
       expect(result).toContain('0.');
       // The second entry (index 1) should be collapsed away
@@ -560,7 +560,7 @@ describe('HarParserService', () => {
         makeEntry({ method: 'GET', url: 'https://api.example.com/users/1' }),
         makeEntry({ method: 'DELETE', url: 'https://api.example.com/users/2' }),
       ];
-      const result = service.generateLlmSummary(entries, 5);
+      const { summary: result } = service.generateLlmSummary(entries, 5);
       // Both should appear — different methods are different endpoints
       expect(result).toContain('GET');
       expect(result).toContain('DELETE');
@@ -572,7 +572,7 @@ describe('HarParserService', () => {
         makeEntry({ url: 'https://api.example.com/items/550e8400-e29b-41d4-a716-446655440000' }),
         makeEntry({ url: 'https://api.example.com/items/6ba7b810-9dad-11d1-80b4-00c04fd430c8' }),
       ];
-      const result = service.generateLlmSummary(entries, 5);
+      const { summary: result } = service.generateLlmSummary(entries, 5);
       expect(result).toContain('/items/{id}');
       expect(result).toContain('(×2)');
       const itemLines = result.split('\n').filter((l) => l.includes('/items/{id}'));
@@ -585,7 +585,7 @@ describe('HarParserService', () => {
         makeEntry({ url: 'https://api.example.com/users/2' }),
         makeEntry({ url: 'https://api.example.com/users/3' }),
       ];
-      const result = service.generateLlmSummary(entries, 20);
+      const { summary: result } = service.generateLlmSummary(entries, 20);
       expect(result).toContain('1 unique API requests');
       expect(result).toContain('3 total');
       expect(result).toContain('duplicates collapsed');
@@ -596,7 +596,7 @@ describe('HarParserService', () => {
         makeEntry({ url: 'https://api.example.com/users' }),
         makeEntry({ url: 'https://api.example.com/posts' }),
       ];
-      const result = service.generateLlmSummary(entries, 10);
+      const { summary: result } = service.generateLlmSummary(entries, 10);
       expect(result).toContain('2 API requests from 10 total');
       expect(result).not.toContain('duplicates collapsed');
     });
@@ -620,7 +620,7 @@ describe('HarParserService', () => {
           },
         }),
       ];
-      const result = service.generateLlmSummary(entries, 5);
+      const { summary: result } = service.generateLlmSummary(entries, 5);
       // Both should appear as separate entries (different operationName)
       expect(result).toContain('GetUsers');
       expect(result).toContain('GetPosts');
@@ -646,7 +646,7 @@ describe('HarParserService', () => {
           },
         }),
       ];
-      const result = service.generateLlmSummary(entries, 5);
+      const { summary: result } = service.generateLlmSummary(entries, 5);
       expect(result).toContain('(×2)');
     });
 
@@ -655,7 +655,7 @@ describe('HarParserService', () => {
         makeEntry({ url: 'https://api.example.com/search?q=cats' }),
         makeEntry({ url: 'https://api.example.com/search?q=dogs' }),
       ];
-      const result = service.generateLlmSummary(entries, 5);
+      const { summary: result } = service.generateLlmSummary(entries, 5);
       // Query params are stripped during parameterization so these SHOULD dedup
       expect(result).toContain('(×2)');
     });
@@ -689,7 +689,7 @@ describe('HarParserService', () => {
         timings: { send: 0, wait: 50, receive: 50 },
       } as Entry;
       // Should not throw
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       expect(result).toContain('/data');
     });
 
@@ -699,7 +699,7 @@ describe('HarParserService', () => {
         url: 'https://api.example.com/data',
         responseText: longResponse,
       });
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       expect(result).toContain('...');
     });
   });
@@ -754,7 +754,7 @@ describe('HarParserService', () => {
   // ---------------------------------------------------------------------------
   describe('generateLlmSummary edge cases', () => {
     it('should handle empty entries array without throwing', () => {
-      const result = service.generateLlmSummary([], 0);
+      const { summary: result } = service.generateLlmSummary([], 0);
       expect(result).toContain('0 API requests');
     });
 
@@ -765,7 +765,7 @@ describe('HarParserService', () => {
         postData: { mimeType: 'application/json', text: '{not valid json' },
       });
       // Should not throw — falls back to ignoring operationName
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       expect(result).toContain('/graphql');
     });
 
@@ -788,7 +788,7 @@ describe('HarParserService', () => {
           headers: [{ name: 'x-api-key', value: 'sk-12345' }],
         }),
       ];
-      const result = service.generateLlmSummary(entries, 5);
+      const { summary: result } = service.generateLlmSummary(entries, 5);
       // First auth type (Bearer) wins for the group
       expect(result).toContain('Auth: Bearer ***');
       expect(result).not.toContain('API-Key');
@@ -799,7 +799,7 @@ describe('HarParserService', () => {
         url: 'https://api.example.com/empty',
         responseSize: 0,
       });
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       const line = result.split('\n').find((l) => l.includes('/empty'));
       expect(line).toBeDefined();
       // Should NOT contain a size annotation like (0B)
@@ -811,7 +811,7 @@ describe('HarParserService', () => {
         url: 'https://api.example.com/small',
         responseSize: 512,
       });
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       expect(result).toContain('512B');
     });
 
@@ -820,7 +820,7 @@ describe('HarParserService', () => {
         url: 'https://api.example.com/kb',
         responseSize: 1024,
       });
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       expect(result).toContain('1.0KB');
     });
 
@@ -829,7 +829,7 @@ describe('HarParserService', () => {
         url: 'https://api.example.com/big',
         responseSize: 2 * 1024 * 1024,
       });
-      const result = service.generateLlmSummary([entry], 5);
+      const { summary: result } = service.generateLlmSummary([entry], 5);
       expect(result).toContain('2.0MB');
     });
   });

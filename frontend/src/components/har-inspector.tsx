@@ -1,16 +1,18 @@
 'use client';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
+  getFilteredRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
-import { useState } from 'react';
+import { ChevronUp, ChevronDown, Search } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 export interface HarEntry {
   method: string;
@@ -18,6 +20,10 @@ export interface HarEntry {
   status: number;
   contentType: string;
   time: number;
+}
+
+interface HarEntryWithIndex extends HarEntry {
+  originalIndex: number;
 }
 
 interface HarInspectorProps {
@@ -50,10 +56,22 @@ function truncateUrl(url: string): string {
   }
 }
 
+function SortIcon({ direction }: { direction: false | 'asc' | 'desc' }) {
+  if (direction === 'asc') return <ChevronUp className="inline h-3 w-3 ml-0.5" />;
+  if (direction === 'desc') return <ChevronDown className="inline h-3 w-3 ml-0.5" />;
+  return null;
+}
+
 export function HarInspector({ entries, matchedIndex }: HarInspectorProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = useState('');
 
-  const columns = useMemo<ColumnDef<HarEntry>[]>(() => [
+  const dataWithIndex = useMemo<HarEntryWithIndex[]>(
+    () => entries.map((e, i) => ({ ...e, originalIndex: i })),
+    [entries],
+  );
+
+  const columns = useMemo<ColumnDef<HarEntryWithIndex>[]>(() => [
     {
       accessorKey: 'method',
       header: 'Method',
@@ -106,12 +124,17 @@ export function HarInspector({ entries, matchedIndex }: HarInspectorProps) {
   ], []);
 
   const table = useReactTable({
-    data: entries,
+    data: dataWithIndex,
     columns,
-    state: { sorting },
+    state: { sorting, globalFilter },
     onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      return row.original.url.toLowerCase().includes(filterValue.toLowerCase());
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
   });
 
   if (entries.length === 0) {
@@ -123,39 +146,50 @@ export function HarInspector({ entries, matchedIndex }: HarInspectorProps) {
   }
 
   return (
-    <div className="rounded-md border dark:border-zinc-800 max-h-[400px] overflow-auto">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  className="cursor-pointer select-none text-xs"
-                  onClick={header.column.getToggleSortingHandler()}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                  {{ asc: ' \u2191', desc: ' \u2193' }[header.column.getIsSorted() as string] ?? ''}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow
-              key={row.id}
-              className={row.index === matchedIndex ? 'bg-blue-50 dark:bg-blue-950/30' : ''}
-            >
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id} className="py-1.5">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="space-y-2">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
+        <Input
+          placeholder="Filter by URL..."
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="pl-8 h-8 text-xs"
+        />
+      </div>
+      <div className="rounded-md border dark:border-zinc-800 max-h-[400px] overflow-auto">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    className="cursor-pointer select-none text-xs"
+                    onClick={header.column.getToggleSortingHandler()}
+                  >
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    <SortIcon direction={header.column.getIsSorted()} />
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow
+                key={row.id}
+                className={row.original.originalIndex === matchedIndex ? 'bg-blue-50 dark:bg-blue-950/30' : ''}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id} className="py-1.5">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

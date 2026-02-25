@@ -174,7 +174,7 @@ export class HarParserService {
    * Entries are grouped by hostname with auth info and compact formatting.
    * Duplicate requests (same method + parameterized path) are collapsed with a count.
    */
-  generateLlmSummary(entries: Entry[], totalCount: number): string {
+  generateLlmSummary(entries: Entry[], totalCount: number): { summary: string; uniqueCount: number } {
     // Group entries by hostname
     const groups = new Map<string, { entries: Entry[]; indices: number[]; authType: string | null }>();
 
@@ -343,7 +343,8 @@ export class HarParserService {
       ? `=== HAR Analysis: ${dedupedCount} unique API requests (${entries.length} total, duplicates collapsed) from ${totalCount} raw entries ===`
       : `=== HAR Analysis: ${entries.length} API requests from ${totalCount} total ===`;
 
-    return [headerLine, '', ...lines].join('\n').trim();
+    const summary = [headerLine, '', ...lines].join('\n').trim();
+    return { summary, uniqueCount: dedupedCount };
   }
 
   private formatSize(bytes: number): string {

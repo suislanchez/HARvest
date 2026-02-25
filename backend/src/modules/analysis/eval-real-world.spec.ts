@@ -99,7 +99,7 @@ describeIf('Real-World Eval (assignment test cases)', () => {
     confidence: number;
     totalEntries: number;
     filteredEntries: number;
-    tokenEstimate: number;
+    promptTokens: number;
     durationMs: number;
     curlPreview: string;
   }> = [];
@@ -139,7 +139,7 @@ describeIf('Real-World Eval (assignment test cases)', () => {
         confidence: result.confidence,
         totalEntries: result.stats.totalRequests,
         filteredEntries: result.stats.filteredRequests,
-        tokenEstimate: result.stats.tokenEstimate,
+        promptTokens: result.stats.promptTokens,
         durationMs: elapsed,
         curlPreview: result.curl.substring(0, 200) + (result.curl.length > 200 ? '...' : ''),
       });
@@ -230,7 +230,7 @@ describeIf('Real-World Eval (assignment test cases)', () => {
       console.log(`         URL: ${r.matchedUrl}`);
       console.log(`         Confidence: ${(r.confidence * 100).toFixed(0)}%`);
       console.log(`         Entries: ${r.filteredEntries} filtered from ${r.totalEntries} total`);
-      console.log(`         Tokens: ~${r.tokenEstimate} | Time: ${(r.durationMs / 1000).toFixed(1)}s`);
+      console.log(`         Tokens: ${r.promptTokens} | Time: ${(r.durationMs / 1000).toFixed(1)}s`);
       console.log(`         Curl: ${r.curlPreview}`);
       console.log('');
     }

@@ -75,6 +75,8 @@ describe('AnalysisService', () => {
         { index: 0, confidence: 0.95, reason: 'Matches user endpoint' },
         { index: 1, confidence: 0.3, reason: 'Less likely' },
       ],
+      promptTokens: 100,
+      completionTokens: 20,
     });
 
     const result = await service.analyzeHar(buffer, 'the users API');
@@ -87,7 +89,7 @@ describe('AnalysisService', () => {
     expect(result.topMatches).toHaveLength(2);
     expect(result.stats.totalRequests).toBe(2);
     expect(result.stats.filteredRequests).toBe(2);
-    expect(result.stats.tokenEstimate).toBeGreaterThan(0);
+    expect(result.stats.promptTokens).toBe(100);
   });
 
   it('should throw when all entries are filtered out', async () => {
@@ -119,6 +121,8 @@ describe('AnalysisService', () => {
       confidence: 0.9,
       reason: 'Data API',
       topMatches: [{ index: 0, confidence: 0.9, reason: 'Data API' }],
+      promptTokens: 50,
+      completionTokens: 10,
     });
 
     const result = await service.analyzeHar(buffer, 'data api');
@@ -140,6 +144,8 @@ describe('AnalysisService', () => {
       confidence: 0.9,
       reason: 'Match',
       topMatches: [{ index: 0, confidence: 0.9, reason: 'Match' }],
+      promptTokens: 50,
+      completionTokens: 10,
     });
 
     await service.analyzeHar(buffer, 'users endpoint');
@@ -162,6 +168,8 @@ describe('AnalysisService', () => {
       confidence: 0.9,
       reason: 'Match',
       topMatches: [{ index: 0, confidence: 0.9, reason: 'Match' }],
+      promptTokens: 50,
+      completionTokens: 10,
     });
 
     const result = await service.analyzeHar(buffer, 'slow api');
@@ -178,6 +186,8 @@ describe('AnalysisService', () => {
       confidence: 0.9,
       reason: 'Match',
       topMatches: [{ index: 0, confidence: 0.9, reason: 'Match' }],
+      promptTokens: 50,
+      completionTokens: 10,
     });
 
     const result = await service.analyzeHar(buffer, 'data');
@@ -194,6 +204,8 @@ describe('AnalysisService', () => {
       confidence: 0.9,
       reason: 'Match',
       topMatches: [{ index: 0, confidence: 0.9, reason: 'Match' }],
+      promptTokens: 50,
+      completionTokens: 10,
     });
 
     const result = await service.analyzeHar(buffer, 'data');
