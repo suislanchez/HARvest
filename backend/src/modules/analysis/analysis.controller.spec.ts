@@ -1,19 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from './../src/app.module';
-import { OpenaiService } from './../src/modules/openai/openai.service';
+import { AppModule } from '../../app.module';
+import { OpenaiService } from '../openai/openai.service';
 
-describe('App (e2e)', () => {
+describe('AnalysisController (integration)', () => {
   let app: INestApplication;
 
   const mockOpenaiService = {
     identifyApiRequest: jest.fn().mockResolvedValue({
       matchIndex: 0,
-      confidence: 0.9,
-      reason: 'Match',
+      confidence: 0.95,
+      reason: 'Best match',
       topMatches: [
-        { index: 0, confidence: 0.9, reason: 'Match' },
+        { index: 0, confidence: 0.95, reason: 'Best match' },
       ],
     }),
   };
@@ -74,7 +74,7 @@ describe('App (e2e)', () => {
     await app.close();
   });
 
-  it('POST /api/analyze with valid HAR returns 201 with curl', async () => {
+  it('POST /api/analyze with valid HAR + description returns 201 with expected fields', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/analyze')
       .attach('file', makeHarBuffer(), 'test.har')
@@ -82,20 +82,52 @@ describe('App (e2e)', () => {
       .expect(201);
 
     expect(res.body).toHaveProperty('curl');
+    expect(res.body).toHaveProperty('matchedRequest');
+    expect(res.body).toHaveProperty('confidence');
+    expect(res.body).toHaveProperty('topMatches');
+    expect(res.body).toHaveProperty('stats');
+    expect(res.body).toHaveProperty('allRequests');
+    expect(res.body.matchedRequest).toHaveProperty('method');
+    expect(res.body.matchedRequest).toHaveProperty('url');
     expect(res.body.curl).toContain('https://api.example.com/users');
   });
 
-  it('POST /api/analyze with invalid JSON as .har returns 400', async () => {
+  it('POST /api/analyze with no file returns 400', async () => {
     await request(app.getHttpServer())
       .post('/api/analyze')
-      .attach('file', Buffer.from('not valid json {{{'), 'bad.har')
       .field('description', 'Find the users API')
       .expect(400);
   });
 
-  it('GET /api/nonexistent returns 404', async () => {
+  it('POST /api/analyze with short description (< 5 chars) returns 400', async () => {
     await request(app.getHttpServer())
-      .get('/api/nonexistent')
-      .expect(404);
+      .post('/api/analyze')
+      .attach('file', makeHarBuffer(), 'test.har')
+      .field('description', 'ab')
+      .expect(400);
+  });
+
+  it('POST /api/analyze with .txt file returns 400', async () => {
+    await request(app.getHttpServer())
+      .post('/api/analyze')
+      .attach('file', Buffer.from('not a har'), 'test.txt')
+      .field('description', 'Find the users API')
+      .expect(400);
+  });
+
+  it('POST /api/analyze response body has correct shape', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/analyze')
+      .attach('file', makeHarBuffer(), 'test.har')
+      .field('description', 'Find the users API')
+      .expect(201);
+
+    expect(typeof res.body.curl).toBe('string');
+    expect(typeof res.body.confidence).toBe('number');
+    expect(Array.isArray(res.body.topMatches)).toBe(true);
+    expect(Array.isArray(res.body.allRequests)).toBe(true);
+    expect(typeof res.body.stats.totalRequests).toBe('number');
+    expect(typeof res.body.stats.filteredRequests).toBe('number');
+    expect(typeof res.body.stats.tokenEstimate).toBe('number');
   });
 });
