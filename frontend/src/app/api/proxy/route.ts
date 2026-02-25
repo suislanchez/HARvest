@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { parseCurl, ParsedRequest } from '@/lib/code-generators';
 
 interface ProxyRequest {
   curl: string;
-}
-
-interface ParsedCurl {
-  url: string;
-  method: string;
-  headers: Record<string, string>;
-  body?: string;
 }
 
 // SSRF protection: block private/internal IPs and metadata endpoints
@@ -69,66 +63,6 @@ function isBlockedUrl(urlStr: string): string | null {
   }
 
   return null;
-}
-
-// Parse a curl command string into components
-function parseCurl(curl: string): ParsedCurl {
-  // Remove line continuations
-  const normalized = curl.replace(/\\\n\s*/g, ' ').trim();
-  const tokens = tokenize(normalized);
-
-  const result: ParsedCurl = { url: '', method: 'GET', headers: {} };
-
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-    if (token === 'curl') continue;
-    if (token === '-X' && i + 1 < tokens.length) {
-      result.method = tokens[++i];
-    } else if (token === '-H' && i + 1 < tokens.length) {
-      const h = tokens[++i];
-      const colonIdx = h.indexOf(':');
-      if (colonIdx !== -1) {
-        result.headers[h.substring(0, colonIdx).trim()] = h.substring(colonIdx + 1).trim();
-      }
-    } else if (token === '-b' && i + 1 < tokens.length) {
-      result.headers['Cookie'] = tokens[++i];
-    } else if ((token === '--data-raw' || token === '-d' || token === '--data') && i + 1 < tokens.length) {
-      result.body = tokens[++i];
-      if (result.method === 'GET') result.method = 'POST';
-    } else if (token === '--compressed') {
-      // skip
-    } else if (!token.startsWith('-') && !result.url) {
-      result.url = token;
-    }
-  }
-
-  return result;
-}
-
-function tokenize(input: string): string[] {
-  const tokens: string[] = [];
-  let i = 0;
-  while (i < input.length) {
-    while (i < input.length && /\s/.test(input[i])) i++;
-    if (i >= input.length) break;
-    let token = '';
-    if (input[i] === "'") {
-      i++;
-      while (i < input.length && input[i] !== "'") token += input[i++];
-      i++;
-    } else if (input[i] === '"') {
-      i++;
-      while (i < input.length && input[i] !== '"') {
-        if (input[i] === '\\' && i + 1 < input.length) i++;
-        token += input[i++];
-      }
-      i++;
-    } else {
-      while (i < input.length && !/\s/.test(input[i])) token += input[i++];
-    }
-    if (token) tokens.push(token);
-  }
-  return tokens;
 }
 
 export async function POST(request: NextRequest) {
