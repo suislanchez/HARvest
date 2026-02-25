@@ -19,7 +19,8 @@
 | **Eval (63 scenarios)** | `eval.spec.ts` | **63** | **Real OpenAI** | **~98% pass** |
 | **Real-World Eval** | `eval-real-world.spec.ts` | **5** | **Real OpenAI + Real APIs** | **5/5 pass** |
 | **E2E Live APIs** | `e2e-live.spec.ts` | **33** | **Real OpenAI + Real APIs** | **32/33 pass (1 skipped)** |
-| **Total** | **11 files** | **~273** | | |
+| **E2E Expanded APIs** | `e2e-live-expanded.spec.ts` | **24** | **Real OpenAI + Real APIs** | **24/24 pass** |
+| **Total** | **12 files** | **~297** | | |
 
 ---
 
@@ -378,7 +379,86 @@ First run: hits live API, saves response to `__recordings__/`. Subsequent runs: 
 
 ---
 
-## 5. Test Fixtures
+## 5. E2E Expanded API Tests — 24 tests (Real OpenAI + 10 New Public APIs)
+
+**File:** `backend/src/modules/analysis/e2e-live-expanded.spec.ts`
+
+Same full pipeline as e2e-live but targeting a broader, more diverse set of real-world APIs. Also fixed a bug where the LLM summary object was being passed as `[object Object]` instead of the actual summary string.
+
+### Suite 8: Government / Science APIs — 2 tests
+
+| # | Test | API | What's Verified |
+|---|---|---|---|
+| 1 | USGS Earthquake data | `earthquake.usgs.gov/fdsnws/event/1/query` | GeoJSON FeatureCollection, metadata.status 200 |
+| 2 | NASA APOD | `api.nasa.gov/planetary/apod?api_key=DEMO_KEY` | Has title, url, media_type |
+
+### Suite 9: Weather APIs — 2 tests
+
+| # | Test | API | What's Verified |
+|---|---|---|---|
+| 3 | Open-Meteo forecast | `api.open-meteo.com/v1/forecast` | current_weather with temperature |
+| 4 | Open-Meteo historical | `archive-api.open-meteo.com/v1/archive` | daily data with time array |
+
+### Suite 10: Culture / Art APIs — 2 tests
+
+| # | Test | API | What's Verified |
+|---|---|---|---|
+| 5 | Met Museum artwork | `collectionapi.metmuseum.org/.../objects/45734` | objectID 45734, has title, department |
+| 6 | Met Museum search | `collectionapi.metmuseum.org/.../search?q=van+gogh` | total > 0, objectIDs array |
+
+### Suite 11: News / Social APIs — 3 tests
+
+| # | Test | API | What's Verified |
+|---|---|---|---|
+| 7 | HN top stories | `hacker-news.firebaseio.com/v0/topstories.json` | Array of numbers |
+| 8 | HN single item | `hacker-news.firebaseio.com/v0/item/1.json` | Has id, title, type |
+| 9 | Dog CEO random | `dog.ceo/api/breeds/image/random/3` | status "success", 3 image URLs |
+
+### Suite 12: Finance APIs — 2 tests
+
+| # | Test | API | What's Verified |
+|---|---|---|---|
+| 10 | CoinGecko Bitcoin | `api.coingecko.com/.../simple/price?ids=bitcoin` | bitcoin.usd is a number |
+| 11 | Exchange rates | `api.exchangerate-api.com/v4/latest/USD` | base "USD", rates.EUR is a number |
+
+### Suite 13: Gaming / Entertainment APIs — 3 tests
+
+| # | Test | API | What's Verified |
+|---|---|---|---|
+| 12 | PokeAPI list | `pokeapi.co/api/v2/pokemon?limit=5` | 5 results, first is "bulbasaur" |
+| 13 | PokeAPI Pikachu | `pokeapi.co/api/v2/pokemon/pikachu` | name "pikachu", id 25, has types |
+| 14 | Rick and Morty | `rickandmortyapi.com/api/character?page=1` | info.count, first result "Rick Sanchez" |
+
+### Suite 14: User Data APIs — 1 test
+
+| # | Test | API | What's Verified |
+|---|---|---|---|
+| 15 | Random User | `randomuser.me/api/?results=3&nat=us` | 3 results with name, email, info |
+
+### Suite 15: Mixed Multi-API Scenarios — 4 tests
+
+Multiple real APIs in a single HAR, LLM must pick the correct one.
+
+| # | Test | Noise APIs | Target API | What's Verified |
+|---|---|---|---|---|
+| 16 | Travel research | Skyscanner, Booking.com | Open-Meteo (Tokyo weather) | URL contains open-meteo.com |
+| 17 | Earthquake dashboard | Google Maps, GeoNames | USGS Earthquake | URL contains earthquake.usgs.gov |
+| 18 | Crypto dashboard | CoinGecko markets | Exchange Rate API | URL contains exchangerate-api.com |
+| 19 | Science news | Hacker News, Dog CEO | NASA APOD | URL contains api.nasa.gov |
+
+### Suite 16: Record & Replay — 5 tests
+
+| # | Test | API | What's Verified |
+|---|---|---|---|
+| 20 | Open-Meteo | `api.open-meteo.com` | current_weather field present |
+| 21 | PokeAPI | `pokeapi.co/api/v2/pokemon/pikachu` | name "pikachu" |
+| 22 | USGS Earthquake | `earthquake.usgs.gov` | type "FeatureCollection" |
+| 23 | CoinGecko | `api.coingecko.com` | bitcoin field present |
+| 24 | Rick and Morty | `rickandmortyapi.com` | results with name field |
+
+---
+
+## 6. Test Fixtures
 
 ### Real-World HAR Captures
 
@@ -421,7 +501,18 @@ First run: hits live API, saves response to `__recordings__/`. Subsequent runs: 
 | restful-api.dev | `api.restful-api.dev` | e2e-live (record/replay) | Object creation |
 | JokeAPI | `v2.jokeapi.dev` | eval-real-world | Joke retrieval, execution verification |
 | forecast7.com | `forecast7.com` | eval-real-world | Weather forecast, execution verification |
-| OpenAI | `api.openai.com` | eval, eval-real-world, e2e-live | LLM matching (gpt-4o-mini) |
+| USGS Earthquake | `earthquake.usgs.gov` | e2e-expanded | GeoJSON earthquake query |
+| NASA APOD | `api.nasa.gov` | e2e-expanded | Astronomy picture of the day |
+| Open-Meteo | `api.open-meteo.com` | e2e-expanded | Weather forecast + historical |
+| Met Museum | `collectionapi.metmuseum.org` | e2e-expanded | Artwork details + search |
+| Hacker News | `hacker-news.firebaseio.com` | e2e-expanded | Top stories, item details |
+| Dog CEO | `dog.ceo` | e2e-expanded | Random dog images |
+| CoinGecko | `api.coingecko.com` | e2e-expanded | Bitcoin price |
+| Exchange Rate API | `api.exchangerate-api.com` | e2e-expanded | USD exchange rates |
+| PokeAPI | `pokeapi.co` | e2e-expanded | Pokemon list + details |
+| Rick and Morty | `rickandmortyapi.com` | e2e-expanded | Character list |
+| Random User | `randomuser.me` | e2e-expanded | Random user generation |
+| OpenAI | `api.openai.com` | eval, eval-real-world, e2e-live, e2e-expanded | LLM matching (gpt-4o-mini) |
 
 ### Simulated APIs (in synthetic HAR fixtures, not hit live)
 
@@ -458,7 +549,10 @@ npx jest eval.spec --testTimeout=120000 --verbose
 npx jest eval-real-world --testTimeout=120000 --verbose
 
 # E2E live API tests — 33 tests hitting real APIs (requires OPENAI_API_KEY, ~45s)
-npx jest e2e-live --testTimeout=60000 --verbose
+npx jest e2e-live.spec --testTimeout=60000 --verbose
+
+# E2E expanded — 24 tests with 10 more APIs (requires OPENAI_API_KEY, ~35s)
+npx jest e2e-live-expanded --testTimeout=60000 --verbose
 
 # Everything at once
 npx jest --testTimeout=120000 --verbose
@@ -470,8 +564,10 @@ npx jest --testTimeout=120000 --verbose
 
 1. **GraphQL same-URL dedup** — When two GraphQL queries hit the same URL with the same method, the dedup logic collapses them into one summary line with `(×2)`, hiding the second query body from the LLM. The eval suite handles this via HAR fixtures that include `operationName`, but the e2e-live test skips this case.
 
-2. **ReqRes.in blocked** — ReqRes is behind Cloudflare bot protection as of Feb 2026. E2E tests use DummyJSON, FakeStoreAPI, and restful-api.dev as alternatives.
+2. **Bot-blocked APIs** — ReqRes.in and Reddit JSON are behind Cloudflare bot protection as of Feb 2026. E2E tests use DummyJSON, FakeStoreAPI, restful-api.dev, and Dog CEO as alternatives.
 
 3. **LLM non-determinism** — Tests with very similar endpoints (e.g., `/posts` vs `/posts?userId=1` from the same host) can occasionally fail when gpt-4o-mini picks the wrong one. These tests use isolated HAR fixtures to reduce ambiguity.
 
 4. **External API dependency** — E2E live tests depend on public APIs being available. Record-and-replay mitigates this with 7-day cached recordings.
+
+5. **LLM summary bug (fixed)** — `generateLlmSummary()` returns `{ summary, uniqueCount }` but both `e2e-live.spec.ts` and `e2e-live-expanded.spec.ts` were originally passing the whole object as the summary string, resulting in `[object Object]` in the LLM prompt. Fixed by destructuring: `const { summary: llmSummary } = harParser.generateLlmSummary(...)`. The original e2e-live tests still passed despite this bug because gpt-4o-mini could infer the answer from the user description alone when there was only one plausible candidate.

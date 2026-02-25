@@ -194,7 +194,7 @@ async function runFullPipeline(entries: Entry[], description: string): Promise<{
   expect(filtered.length).toBeGreaterThan(0);
 
   // LLM match
-  const llmSummary = harParser.generateLlmSummary(filtered, parsed.log.entries.length);
+  const { summary: llmSummary } = harParser.generateLlmSummary(filtered, parsed.log.entries.length);
   const llmResult = await openai.identifyApiRequest(llmSummary, description, filtered.length);
 
   const matchedEntry = filtered[llmResult.matchIndex];
