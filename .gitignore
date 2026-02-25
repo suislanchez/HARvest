@@ -5,3 +5,4 @@ dist/
 .next/
 *.har
 .turbo/
+__recordings__/

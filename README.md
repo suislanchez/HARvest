@@ -120,25 +120,69 @@ The LLM sees a compact grouped summary, not raw HAR data:
 | 200 entries | ~$0.32 | ~$0.002 | **99.4%** |
 | 2000 entries | ~$3.20 | ~$0.012 | **99.6%** |
 
+### Real-World Token Usage (measured)
+
+| HAR File | Raw Entries | After Filter | LLM Input Tokens | Time |
+|----------|-----------|-------------|------------------|------|
+| SFGate weather (5MB) | 117 | 9 | 1,112 | 1.5s |
+| RecipeScal (1.7MB) | 37 | 5 | 373 | 1.8s |
+| JokeAPI (1.7MB) | 34 | 3 | 437 | 1.3s |
+| JokeAPI large (91MB) | 1,727 | 220 | 5,695 | 2.9s |
+
+### Token Efficiency Tradeoffs
+
+| Tradeoff | What we gain | What we lose |
+|----------|-------------|-------------|
+| **Pre-filtering removes ~85% of entries** | Massive token savings — 117 → 9 entries for SFGate | Could miss an API disguised as a static asset (e.g., `.js` extension serving JSON). Mitigated by conservative filtering — we keep unknown MIME types. |
+| **Deduplication collapses repeated requests** | `/users/1`, `/users/2`, `/users/3` become one line with `(×3)` | Lose visibility into individual request/response differences. Mitigated by keeping the first entry's full details as representative. |
+| **Body preview truncated to 120 chars** | Keeps summaries compact even for large POST bodies | LLM can't see deep nested JSON structures. Mitigated by including `operationName` extraction for GraphQL. |
+| **Response preview truncated to 150 chars** | Avoids token explosion from large response bodies | LLM can't inspect full response shape. Acceptable because URL path + method + status are usually sufficient. |
+| **Single LLM call per analysis** | Predictable cost (~$0.001/request), fast response | No multi-turn reasoning or clarification. Works because the summary format is information-dense. |
+| **`gpt-4o-mini` instead of `gpt-4o`** | ~10x cheaper per request | Slightly lower reasoning on ambiguous cases. Measured at 100% accuracy on all assignment test cases. |
+
 ---
 
-## Eval Suite
+## Test Suite
 
-The project includes a comprehensive evaluation suite with **63 test cases** across **10 categories** and **4 difficulty levels**.
-
-| Metric | Value |
-|--------|-------|
-| Total test cases | 63 |
-| Categories | 10 (basic, recipe, e-commerce, GraphQL, noisy, dashboard, streaming, fintech, travel, collab) + vague |
-| Difficulty levels | Easy (5), Medium (21), Hard (25), Extreme (12) |
-| Pass rate | **98.3%** (59/60 on core tests) |
-| Avg confidence | >90% |
+**257 total tests**: 192 unit tests + 65 eval tests (63 synthetic + 4 real-world assignment cases, with 2 live API execution tests).
 
 ```bash
-# Run eval suite
-cd backend
-npx jest eval.spec.ts --verbose
+# Unit tests (192 tests, no API key needed)
+cd backend && npx jest --testPathPatterns='spec' --testPathIgnorePatterns='eval' --verbose
+
+# Synthetic eval suite (63 tests, needs OPENAI_API_KEY)
+cd backend && npx jest eval.spec.ts --testTimeout=120000 --verbose
+
+# Real-world eval against assignment HAR files (4+2 tests, needs OPENAI_API_KEY + HAR fixtures)
+cd backend && npx jest eval-real-world --testTimeout=120000 --verbose
+
+# E2E tests
+cd backend && npx jest --config test/jest-e2e.json --verbose
 ```
+
+### Eval Suite (63 synthetic scenarios)
+
+| Difficulty | Tests | Pass Rate | Avg Confidence |
+|-----------|-------|-----------|---------------|
+| Easy | 6 | 100% | 100% |
+| Medium | 24 | 100% | 100% |
+| Hard | 23 | 100% | 99% |
+| Extreme | 10 | 100% | 96% |
+
+10 categories: basic, recipe, e-commerce, GraphQL, noisy, dashboard, streaming, fintech, travel, collab — plus vague natural-language queries.
+
+### Real-World Eval (assignment test cases)
+
+Tests run against the exact HAR files and prompts from the assignment specification:
+
+| Test Case | HAR | Entries | Correct URL Found | Confidence |
+|-----------|-----|---------|-------------------|-----------|
+| SFGate Weather | 5MB / 117 entries | `forecast7.com/.../san-francisco/?format=json` | 100% |
+| RecipeScal | 1.7MB / 37 entries | `recipescal.com/api/bookapi` | 90% |
+| JokeAPI | 1.7MB / 34 entries | `v2.jokeapi.dev/joke/Any?amount=5` | 100% |
+| JokeAPI (large) | 91MB / 1,727 entries | `v2.jokeapi.dev/joke/Any?amount=5` | 100% |
+
+The eval also **executes** the generated JokeAPI and SFGate curl commands against the live APIs and verifies real responses come back (5 jokes, weather data).
 
 See [docs/EVAL-AND-TESTING.md](./docs/EVAL-AND-TESTING.md) for details on categories, fixtures, and adding new tests.
 
@@ -146,7 +190,9 @@ See [docs/EVAL-AND-TESTING.md](./docs/EVAL-AND-TESTING.md) for details on catego
 
 ## Security
 
-- **SSRF protection** on the curl execution proxy: blocks private IPs (`10.x`, `172.16-31.x`, `192.168.x`), localhost, link-local (`169.254.x`), cloud metadata endpoints (`169.254.169.254`, `metadata.google.internal`), non-HTTP protocols
+- **SSRF protection** on the curl execution proxy: blocks private IPs (`10.x`, `172.16-31.x`, `192.168.x`), localhost, link-local (`169.254.x`), cloud metadata endpoints (`169.254.169.254`, `metadata.google.internal`), IPv6-mapped private IPs (`[::ffff:127.0.0.1]`, `[::]`), non-HTTP protocols
+- **Rate limiting**: Two-tier throttle (5 req/10s short burst, 20 req/min sustained) via `@nestjs/throttler`
+- **Global exception filter**: Consistent error response format `{ statusCode, error, message, timestamp }` — no stack traces leaked to clients
 - **File validation**: HAR structure validated both client-side and server-side
 - **No secrets in client**: OpenAI API key stays on the backend
 - **Memory-only file handling**: uploaded files are never written to disk
@@ -216,3 +262,9 @@ npm run build
 | [03-CURL-GENERATION.md](./docs/03-CURL-GENERATION.md) | Research: shell safety, header classification, method inference |
 | [04-TOKEN-EFFICIENCY.md](./docs/04-TOKEN-EFFICIENCY.md) | Research: token cost analysis, reduction pipeline, OpenAI optimizations |
 | [05-ARCHITECTURE-AND-IMPLEMENTATION.md](./docs/05-ARCHITECTURE-AND-IMPLEMENTATION.md) | Research: design principles, separation of concerns, security model |
+| [06-SSRF-AND-SECURITY-HARDENING.md](./docs/06-SSRF-AND-SECURITY-HARDENING.md) | Research: DNS rebinding, IPv6 bypasses, IP encoding tricks, CSP |
+| [07-RATE-LIMITING-AND-ABUSE-PREVENTION.md](./docs/07-RATE-LIMITING-AND-ABUSE-PREVENTION.md) | Research: rate limiting algorithms, NestJS throttler, cost protection |
+| [08-ERROR-HANDLING-AND-RECOVERY.md](./docs/08-ERROR-HANDLING-AND-RECOVERY.md) | Research: error taxonomy, retry strategies, circuit breaker pattern |
+| [09-CACHING-STRATEGIES.md](./docs/09-CACHING-STRATEGIES.md) | Research: exact-match & semantic caching, OpenAI prompt caching, cost savings |
+| [10-OBSERVABILITY.md](./docs/10-OBSERVABILITY.md) | Research: structured logging, request tracing, metrics, health checks |
+| [11-HAR-SIZE-LIMITS-AND-STREAMING.md](./docs/11-HAR-SIZE-LIMITS-AND-STREAMING.md) | Research: memory limits, streaming JSON parsers, chunked processing |

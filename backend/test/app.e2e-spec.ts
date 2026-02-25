@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { OpenaiService } from './../src/modules/openai/openai.service';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 describe('App (e2e)', () => {
   let app: INestApplication;
@@ -62,6 +63,8 @@ describe('App (e2e)', () => {
     })
       .overrideProvider(OpenaiService)
       .useValue(mockOpenaiService)
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();

@@ -148,6 +148,70 @@ describeIf('Real-World Eval (assignment test cases)', () => {
     }, 120_000);
   }
 
+  // -------------------------------------------------------------------------
+  // Curl execution verification — prove the generated curl actually works
+  // Uses JokeAPI (public, no auth, stable) as the smoke test target
+  // -------------------------------------------------------------------------
+  it('EXECUTION: generated JokeAPI curl returns real jokes when executed', async () => {
+    const harPath = path.join(fixturesDir, 'jokes-real.har');
+    if (!fs.existsSync(harPath)) return;
+
+    const buffer = fs.readFileSync(harPath);
+    const result = await service.analyzeHar(buffer, 'Can you give me a curl command to get 5 jokes via API?');
+
+    // Parse the generated curl back to request components
+    const curlService = new HarToCurlService();
+    const parsed = curlService.parseCurlToRequest(result.curl);
+
+    expect(parsed.url).toContain('v2.jokeapi.dev/joke/Any');
+
+    // Actually execute the HTTP request
+    const fetchRes = await fetch(parsed.url, {
+      method: parsed.method,
+      headers: parsed.headers,
+      signal: AbortSignal.timeout(15000),
+    });
+
+    expect(fetchRes.status).toBe(200);
+
+    const body = await fetchRes.json();
+
+    // Verify we got actual jokes back
+    expect(body).toHaveProperty('amount');
+    expect(body.amount).toBe(5);
+    expect(body).toHaveProperty('jokes');
+    expect(body.jokes).toHaveLength(5);
+    expect(body.jokes[0]).toHaveProperty('type');
+
+    console.log(`  [EXEC] JokeAPI curl executed successfully → ${fetchRes.status}, got ${body.amount} jokes`);
+  }, 30_000);
+
+  it('EXECUTION: generated SFGate weather curl returns real forecast data', async () => {
+    const harPath = path.join(fixturesDir, 'sfgate.har');
+    if (!fs.existsSync(harPath)) return;
+
+    const buffer = fs.readFileSync(harPath);
+    const result = await service.analyzeHar(buffer, 'Return the API that fetches the weather of San Francisco.');
+
+    const curlService = new HarToCurlService();
+    const parsed = curlService.parseCurlToRequest(result.curl);
+
+    expect(parsed.url).toContain('forecast7.com');
+
+    const fetchRes = await fetch(parsed.url, {
+      method: parsed.method,
+      headers: parsed.headers,
+      signal: AbortSignal.timeout(15000),
+    });
+
+    // forecast7 should return 200 with weather data
+    expect(fetchRes.status).toBe(200);
+    const body = await fetchRes.text();
+    expect(body.length).toBeGreaterThan(100);
+
+    console.log(`  [EXEC] SFGate weather curl executed successfully → ${fetchRes.status}, body ${body.length} chars`);
+  }, 30_000);
+
   afterAll(() => {
     if (results.length === 0) return;
 

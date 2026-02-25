@@ -161,6 +161,26 @@ export default function Home() {
           </div>
         )}
 
+        {/* Loading skeleton during analysis */}
+        {isAnalyzing && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Analyzing...</CardTitle>
+                <div className="h-5 w-24 bg-zinc-200 dark:bg-zinc-800 rounded-full animate-pulse" />
+              </div>
+              <div className="h-4 w-3/4 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse mt-1" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="bg-zinc-950 p-4 rounded-lg space-y-2">
+                <div className="h-4 w-full bg-zinc-800 rounded animate-pulse" />
+                <div className="h-4 w-5/6 bg-zinc-800 rounded animate-pulse" />
+                <div className="h-4 w-2/3 bg-zinc-800 rounded animate-pulse" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Step 4: Results */}
         {result && (
           <div className="space-y-4">
@@ -179,6 +199,27 @@ export default function Home() {
               isExecuting={isExecuting}
             />
           </div>
+        )}
+
+        {/* Loading skeleton during execution */}
+        {isExecuting && !proxyResponse && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Executing...</CardTitle>
+                <div className="h-5 w-16 bg-zinc-200 dark:bg-zinc-800 rounded-full animate-pulse" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-zinc-950 p-4 rounded-lg space-y-2">
+                <div className="h-4 w-full bg-zinc-800 rounded animate-pulse" />
+                <div className="h-4 w-4/5 bg-zinc-800 rounded animate-pulse" />
+                <div className="h-4 w-3/5 bg-zinc-800 rounded animate-pulse" />
+                <div className="h-4 w-full bg-zinc-800 rounded animate-pulse" />
+                <div className="h-4 w-2/3 bg-zinc-800 rounded animate-pulse" />
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Step 5: Execution Response */}
