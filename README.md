@@ -9,7 +9,19 @@ Upload a HAR file, describe an API in plain English, get a ready-to-use curl com
 3. **Get** a curl command for the matching request, ready to copy and execute
 4. **Run it** directly from the browser via the built-in execution proxy
 
-The app pre-filters HAR entries, summarizes them in a token-efficient grouped format, and uses an LLM to semantically match your description to the right API request. The curl command is generated deterministically from the original HAR entry — the LLM never touches curl generation, ensuring zero hallucination.
+The app pre-filters HAR entries, deduplicates repeated requests, summarizes them in a token-efficient grouped format, and uses an LLM to semantically match your description to the right API request. The curl command is generated deterministically from the original HAR entry — the LLM never touches curl generation, ensuring zero hallucination.
+
+## Features
+
+- **Smart filtering**: 7-layer pipeline removes static assets, tracking pixels, CORS preflights, redirects, and non-API content (~85% noise reduction)
+- **Deduplication**: Repeated requests collapsed with `(×N)` annotation — path-parameterized so `/users/123` and `/users/456` are recognized as the same endpoint
+- **GraphQL discrimination**: Requests to `/graphql` are differentiated by `operationName` (e.g., `POST /graphql:GetUser` vs `POST /graphql:GetFeed`)
+- **UUID parameterization**: UUIDs in paths replaced with `/{id}` for cleaner grouping
+- **Grouped summaries**: Entries grouped by hostname with shared auth context, ~20 tokens per entry
+- **Response previews**: First 150 chars of response body included to aid semantic matching
+- **Deterministic curl**: Shell-safe generation with single-quoting, `--data-raw`, and proper header filtering
+- **In-browser execution**: SSRF-protected proxy for running curl commands directly
+- **HAR inspector**: Full request table with filtering, sorting, and detail view
 
 ## Quick Start
 
@@ -41,90 +53,17 @@ docker-compose up
 
 ---
 
-## Research & Approach
-
-This project was built on extensive research into HAR file analysis, API reverse engineering patterns, and LLM token efficiency. The full research documents are in [`/docs`](./docs/).
-
-### Research Areas
-
-#### 1. HAR Format Deep Dive ([docs/01-HAR-FORMAT-AND-PARSING.md](./docs/01-HAR-FORMAT-AND-PARSING.md))
-
-The HAR 1.2 specification defines the HTTP Archive format — plain JSON containing every request/response a browser records. Our research mapped out:
-
-- **Critical fields for API identification**: `request.method`, `request.url`, `request.headers`, `request.postData`, `response.status`, `response.content.mimeType`, `response.content.text`
-- **Chrome-specific extensions**: Fields like `_resourceType` (xhr/fetch/script/image) and `_initiator` that browsers embed but the spec doesn't require — useful signals when available but not something to depend on
-- **Edge cases**: Base64-encoded response bodies, HTTP/2 pseudo-headers (`:authority`, `:method`, `:path`, `:scheme`), CORS preflight requests, WebSocket upgrades, aborted requests (status 0), data URIs, and source maps
-
-This research directly shaped our `parseHar()` and `filterApiRequests()` implementations — knowing exactly which fields matter and which edge cases to handle.
-
-#### 2. API Reverse Engineering Patterns ([docs/02-REVERSE-ENGINEERING-PATTERNS.md](./docs/02-REVERSE-ENGINEERING-PATTERNS.md))
-
-We studied how tools like **mitmproxy2swagger** and **reverse-api-engineer** approach the problem of identifying API requests in HTTP traffic. Key insights:
-
-- **Signal ranking**: URL path segments are the strongest indicator, followed by query parameters, request body content, response body structure, hostname/subdomain, custom headers, and finally content type
-- **Scoring algorithm**: We developed a weighted scoring system — `+3` for JSON responses, `+2` for "api." hostnames or "/api/" paths, `+2` for Authorization headers, `-∞` for static extensions and tracking domains
-- **Protocol-specific patterns**: REST APIs use path-as-resource with standard HTTP methods; GraphQL uses a single `/graphql` endpoint where `operationName` in the POST body is the critical differentiator; gRPC-Web uses `application/grpc-web*` content types with `Package.Service/Method` paths
-- **The "index return" technique**: Instead of asking the LLM to generate a curl command (prone to hallucination), we present numbered request summaries and ask for just the index. The LLM does semantic matching; deterministic code does curl generation. This was the single most important architectural decision.
-
-#### 3. Curl Generation ([docs/03-CURL-GENERATION.md](./docs/03-CURL-GENERATION.md))
-
-Rather than using an existing library (the popular `har-to-curl` npm package is archived and has known issues), we built a custom generator informed by research into:
-
-- **Shell safety**: Single-quoting everything to prevent shell expansion of `$`, `!`, `&` in URLs and JSON bodies. The "O'Brien problem" — handling single quotes inside single-quoted strings using the `'\''` concatenation technique
-- **`--data-raw` vs `-d`**: Using `--data-raw` instead of `-d` to prevent curl from interpreting `@` as a file reference in POST bodies
-- **Header classification**: We categorized every common HTTP header as "always skip" (browser-internal like `Sec-Fetch-*`, `Sec-CH-UA-*`, auto-managed like `Host`, `Connection`, `Content-Length`), "always include" (functionally significant like `Authorization`, `Content-Type`, `Accept`, custom `X-*` headers), or "consider redacting" (tokens, cookies)
-- **Method inference**: Omitting `-X GET` (curl default) and `-X POST` when `--data-raw` is present (curl infers POST), keeping the output clean
-
-#### 4. Token Efficiency — The Key Differentiator ([docs/04-TOKEN-EFFICIENCY.md](./docs/04-TOKEN-EFFICIENCY.md))
-
-This was the deepest research area. A naive approach of sending full HAR data to an LLM is catastrophically expensive:
-
-| HAR Size | Naive (full entries) | Our approach | Savings |
-|----------|---------------------|--------------|---------|
-| 20 entries | ~$0.05 | ~$0.0007 | **98.6%** |
-| 200 entries | ~$0.32 | ~$0.002 | **99.4%** |
-| 2000 entries | ~$3.20 | ~$0.012 | **99.6%** |
-
-**Key finding**: Response bodies account for **80-95% of all tokens** in a HAR file. Stripping them (since they're not needed for identification) is the single largest optimization.
-
-We researched and implemented a multi-layer reduction pipeline:
-
-1. **Deterministic pre-filtering** (free, ~85% reduction): Remove static assets by extension (`.js`, `.css`, `.png`, etc.), tracking/analytics domains (~50 known domains), non-API MIME types (`text/html`, `text/css`, `image/*`), CORS preflight (`OPTIONS`), failed requests (status 0), and redirects
-2. **Compact summarization** (further ~95% reduction): Instead of sending full request objects, we generate one-liner summaries per entry (~20 tokens each vs 250-600 for stripped entries or 1,500-15,000 for full entries)
-3. **Grouped format with shared context**: Entries grouped by hostname with auth type extracted once per group, eliminating repetition
-4. **Path parameterization**: `/users/123/posts/456` becomes `/users/{id}/posts/{id}`, reducing unique URL noise
-5. **Short MIME types**: `json` instead of `application/json`, `xml` instead of `application/xml`
-6. **Response previews**: First 150 chars of response body included only when helpful for semantic matching (e.g., confirming a jokes API actually returns jokes)
-
-We also researched OpenAI-specific optimizations:
-- **Structured outputs** (`response_format: json_object`): Forces valid JSON responses, eliminates parsing failures
-- **Prompt caching** (75% discount on repeated prefixes): System prompt placed first (stable/cacheable), variable HAR data placed last
-- **Low temperature** (0.1): Deterministic matching over creative variation
-- **`max_tokens: 500`**: Caps output cost since we only need a small JSON response
-
-The research also explored a **two-pass pipeline** (nano model for initial screening, then mini for confirmation) that would be appropriate for very large HAR files (500+ entries), though our current implementation uses a single pass since pre-filtering typically reduces to under 50 entries.
-
-#### 5. Architecture & Implementation ([docs/05-ARCHITECTURE-AND-IMPLEMENTATION.md](./docs/05-ARCHITECTURE-AND-IMPLEMENTATION.md))
-
-The architecture research covered existing tools in this space and established our design principles:
-
-- **Separation of concerns**: The LLM is a semantic matcher, not a code generator. It identifies *which* request matches; deterministic code handles everything else (parsing, filtering, summarizing, curl generation)
-- **Conservative filtering**: The pre-filter pipeline only removes what we're certain about — it's better to include a few extra entries (slightly higher token cost) than to accidentally filter out the target API
-- **Memory-only file handling**: HAR files (which contain auth tokens, cookies, and session data) are never written to disk — processed entirely in memory via Multer's `memoryStorage()`
-- **SSRF protection on execution proxy**: The curl execution proxy blocks private IPs (`10.x`, `172.16-31.x`, `192.168.x`), localhost, link-local (`169.254.x`), and cloud metadata endpoints (`169.254.169.254`)
-
----
-
 ## Architecture
 
 ```
-├── backend/          NestJS API server (port 3001)
-│   ├── analysis/     HAR parsing, pre-filtering, summarization, curl generation
-│   └── openai/       LLM integration for semantic request matching
-├── frontend/         Next.js app (port 3000)
-│   ├── components/   File upload, HAR inspector, curl output, response viewer
-│   └── api/proxy/    SSRF-protected curl execution proxy
-├── docs/             Research documents (5 detailed write-ups)
+├── backend/              NestJS API server (port 3001)
+│   ├── analysis/         HAR parsing, filtering, dedup, summarization, curl generation
+│   └── openai/           LLM integration for semantic request matching
+├── frontend/             Next.js app (port 3000)
+│   ├── components/       File upload, HAR inspector, curl output, response viewer
+│   └── api/proxy/        SSRF-protected curl execution proxy
+├── test-fixtures/        HAR fixtures for eval suite (10 scenarios)
+├── docs/                 Research & architecture documentation
 └── docker-compose.yml
 ```
 
@@ -139,7 +78,9 @@ User uploads .har file
        ↓
   User types API description → POST /api/analyze
        ↓
-  Parse HAR → Pre-filter (remove ~85% noise)
+  Parse HAR → Pre-filter (7 layers, remove ~85% noise)
+       ↓
+  Deduplicate (parameterize paths, collapse repeats with ×N)
        ↓
   Generate grouped summary (~20 tokens/entry)
        ↓
@@ -157,22 +98,55 @@ User uploads .har file
 The LLM sees a compact grouped summary, not raw HAR data:
 
 ```
-=== HAR Analysis: 5 API requests from 200 total ===
+=== HAR Analysis: 5 unique API requests (12 total, duplicates collapsed) from 200 raw entries ===
 
 [api.weather.com] (2 requests, Auth: Bearer ***)
   0. GET /v3/wx/forecast?geocode=37.77,-122.42 → 200 json (2.0KB)
   1. GET /v3/wx/conditions?geocode=37.77,-122.42 → 200 json (800B)
 
 [api.example.com] (3 requests, Auth: Bearer ***)
-  2. POST /graphql → 200 json body: {"operationName":"GetUser"...
-  3. GET /api/v2/users/{id} → 200 json (4.5KB)
+  2. POST /graphql:GetUser → 200 json body: {"operationName":"GetUser"...  (×3)
+  3. GET /api/v2/users/{id} → 200 json (4.5KB)  (×2)
+  4. POST /graphql:GetFeed → 200 json body: {"operationName":"GetFeed"...
 ```
 
-200 total HAR entries → 5 API candidates → ~100 tokens of LLM input. The response is ~50 tokens of JSON with index, confidence, and reason.
+200 raw entries → 12 after filtering → 5 unique after dedup → ~100 tokens of LLM input.
 
-### Security
+### Token Savings
 
-- **SSRF protection** on the curl execution proxy: blocks private IPs, localhost, cloud metadata endpoints, non-HTTP protocols
+| HAR Size | Naive (full entries) | Our approach | Savings |
+|----------|---------------------|--------------|---------|
+| 20 entries | ~$0.05 | ~$0.0007 | **98.6%** |
+| 200 entries | ~$0.32 | ~$0.002 | **99.4%** |
+| 2000 entries | ~$3.20 | ~$0.012 | **99.6%** |
+
+---
+
+## Eval Suite
+
+The project includes a comprehensive evaluation suite with **63 test cases** across **10 categories** and **4 difficulty levels**.
+
+| Metric | Value |
+|--------|-------|
+| Total test cases | 63 |
+| Categories | 10 (basic, recipe, e-commerce, GraphQL, noisy, dashboard, streaming, fintech, travel, collab) + vague |
+| Difficulty levels | Easy (5), Medium (21), Hard (25), Extreme (12) |
+| Pass rate | **98.3%** (59/60 on core tests) |
+| Avg confidence | >90% |
+
+```bash
+# Run eval suite
+cd backend
+npx jest eval.spec.ts --verbose
+```
+
+See [docs/EVAL-AND-TESTING.md](./docs/EVAL-AND-TESTING.md) for details on categories, fixtures, and adding new tests.
+
+---
+
+## Security
+
+- **SSRF protection** on the curl execution proxy: blocks private IPs (`10.x`, `172.16-31.x`, `192.168.x`), localhost, link-local (`169.254.x`), cloud metadata endpoints (`169.254.169.254`, `metadata.google.internal`), non-HTTP protocols
 - **File validation**: HAR structure validated both client-side and server-side
 - **No secrets in client**: OpenAI API key stays on the backend
 - **Memory-only file handling**: uploaded files are never written to disk
@@ -180,9 +154,18 @@ The LLM sees a compact grouped summary, not raw HAR data:
 
 ## Tech Stack
 
-- **Backend**: NestJS, OpenAI SDK, TypeScript
-- **Frontend**: Next.js 16, React 19, Tailwind CSS, shadcn/ui, TanStack React Table
-- **Infrastructure**: Docker, npm workspaces
+| Layer | Technology | Version |
+|-------|------------|---------|
+| Backend framework | NestJS | 11 |
+| Frontend framework | Next.js | 16 |
+| UI library | React | 19 |
+| Styling | Tailwind CSS | 4 |
+| Components | shadcn/ui + Radix UI | — |
+| Data table | TanStack React Table | 8 |
+| LLM SDK | OpenAI Node SDK | 6 |
+| Language | TypeScript | 5.7 |
+| Testing | Jest | 30 |
+| Infrastructure | Docker, npm workspaces | — |
 
 ## Tech Decisions
 
@@ -190,10 +173,46 @@ The LLM sees a compact grouped summary, not raw HAR data:
 |----------|-----------|
 | LLM returns index, not curl | Zero hallucination — deterministic curl generation from original HAR entry |
 | Pre-filter before LLM | ~85% entry reduction for free, no token cost, no API call |
+| Deduplication with ×N | Collapse repeated endpoints to reduce token count without losing information |
+| GraphQL operationName keying | `/graphql` requests are only distinguishable by their operation — include it in the dedup key |
+| UUID parameterization | `/users/550e8400-...` → `/users/{id}` for cleaner grouping |
 | Grouped summary format | Hostname grouping + shared auth reduces token repetition |
 | `gpt-4o-mini` default | Best cost/accuracy ratio for structured matching tasks |
 | `--data-raw` over `-d` | Prevents `@` file interpretation in POST bodies |
 | Single-quote shell escaping | Prevents `$`, `!`, `&` expansion — safest approach |
 | Memory-only file storage | HAR files contain sensitive auth data — never touch disk |
-| Custom curl generator | Archived `har-to-curl` package has issues; 50 lines of focused code is better |
+| Custom curl generator | Archived `har-to-curl` package has issues; focused custom code is better |
 | Conservative pre-filter | Better to include noise than miss the target API |
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run dev servers (frontend + backend)
+npm run dev
+
+# Run backend unit tests
+cd backend && npx jest
+
+# Run eval suite (requires OPENAI_API_KEY)
+cd backend && npx jest eval.spec.ts --verbose
+
+# Build for production
+npm run build
+```
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [PLANNING.md](./docs/PLANNING.md) | Project goals, design principles, decisions, and roadmap |
+| [SYSTEM-ARCHITECTURE.md](./docs/SYSTEM-ARCHITECTURE.md) | Component breakdown, data flow, filtering pipeline, LLM integration |
+| [EVAL-AND-TESTING.md](./docs/EVAL-AND-TESTING.md) | Eval suite design, running tests, adding fixtures |
+| [TOKEN-OPTIMIZATION-GUIDE.md](./docs/TOKEN-OPTIMIZATION-GUIDE.md) | Token optimization funnel, cost analysis, dedup strategy |
+| [01-HAR-FORMAT-AND-PARSING.md](./docs/01-HAR-FORMAT-AND-PARSING.md) | Research: HAR 1.2 spec, critical fields, edge cases |
+| [02-REVERSE-ENGINEERING-PATTERNS.md](./docs/02-REVERSE-ENGINEERING-PATTERNS.md) | Research: signal ranking, scoring, protocol patterns |
+| [03-CURL-GENERATION.md](./docs/03-CURL-GENERATION.md) | Research: shell safety, header classification, method inference |
+| [04-TOKEN-EFFICIENCY.md](./docs/04-TOKEN-EFFICIENCY.md) | Research: token cost analysis, reduction pipeline, OpenAI optimizations |
+| [05-ARCHITECTURE-AND-IMPLEMENTATION.md](./docs/05-ARCHITECTURE-AND-IMPLEMENTATION.md) | Research: design principles, separation of concerns, security model |
