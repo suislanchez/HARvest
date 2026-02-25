@@ -15,6 +15,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../app.module';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AnalysisService } from './analysis.service';
 import { HarParserService } from './har-parser.service';
 import { HarToCurlService } from './har-to-curl.service';
@@ -50,6 +51,8 @@ describeIf('E2E Stress — Concurrent / Load / Edge Cases', () => {
       imports: [AppModule],
     })
       .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .overrideProvider(APP_GUARD)
       .useValue({ canActivate: () => true })
       .compile();
 

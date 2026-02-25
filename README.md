@@ -62,7 +62,9 @@ docker-compose up
 ├── frontend/             Next.js app (port 3000)
 │   ├── components/       File upload, HAR inspector, curl output, response viewer
 │   └── api/proxy/        SSRF-protected curl execution proxy
-├── test-fixtures/        HAR fixtures for eval suite (10 scenarios)
+├── test-fixtures/        HAR fixtures for eval suite (10 synthetic + 4 real-world)
+│   ├── captured/         Playwright-captured browser HARs (gitignored)
+│   └── capture-real-hars.ts  Automated HAR capture script
 ├── docs/                 Research & architecture documentation
 └── docker-compose.yml
 ```
@@ -144,21 +146,44 @@ The LLM sees a compact grouped summary, not raw HAR data:
 
 ## Test Suite
 
-**257 total tests**: 192 unit tests + 65 eval tests (63 synthetic + 4 real-world assignment cases, with 2 live API execution tests).
+**~334 total tests** across 15 files: 192 unit tests, 63 synthetic eval, 5 real-world eval, 57 live API e2e, and 37 true end-to-end stress tests.
 
 ```bash
-# Unit tests (192 tests, no API key needed)
-cd backend && npx jest --testPathPatterns='spec' --testPathIgnorePatterns='eval' --verbose
+cd backend
 
-# Synthetic eval suite (63 tests, needs OPENAI_API_KEY)
-cd backend && npx jest eval.spec.ts --testTimeout=120000 --verbose
+# Unit tests (192 tests, no API key needed, ~1s)
+npx jest har-parser har-to-curl analysis.service analysis.controller openai.service proxy-ssrf performance --verbose
 
-# Real-world eval against assignment HAR files (4+2 tests, needs OPENAI_API_KEY + HAR fixtures)
-cd backend && npx jest eval-real-world --testTimeout=120000 --verbose
+# Synthetic eval suite (63 tests, needs OPENAI_API_KEY, ~2min)
+npx jest eval.spec --testTimeout=120000 --verbose
 
-# E2E tests
-cd backend && npx jest --config test/jest-e2e.json --verbose
+# Real-world eval (5 tests, needs OPENAI_API_KEY)
+npx jest eval-real-world --testTimeout=120000 --verbose
+
+# E2E live API tests (57 tests, needs OPENAI_API_KEY)
+npx jest e2e-live --testTimeout=60000 --verbose
+
+# True pipeline tests — full analyzeHar() + curl execution (15 tests)
+npx jest e2e-pipeline --testTimeout=120000 --verbose
+
+# HTTP integration — multipart upload through NestJS (10 tests)
+npx jest e2e-http --testTimeout=120000 --verbose
+
+# Stress tests — concurrent, large files, edge cases (12 tests)
+npx jest e2e-stress --testTimeout=300000 --verbose
 ```
+
+### Test Pyramid
+
+| Layer | Suite | Tests | What It Tests |
+|-------|-------|-------|---------------|
+| **Unit** | 7 files | 192 | HAR parsing, filtering, curl gen, controller, OpenAI, SSRF, perf |
+| **Eval** | `eval.spec.ts` | 63 | Synthetic HAR scenarios across 10 categories (real LLM) |
+| **Real-World Eval** | `eval-real-world.spec.ts` | 5 | Assignment HAR files + curl execution against live APIs |
+| **E2E Live APIs** | `e2e-live*.spec.ts` | 57 | Build HAR → LLM match → execute curl against 20+ public APIs |
+| **Pipeline E2E** | `e2e-pipeline.spec.ts` | 15 | Full `analyzeHar()` entry point with real + captured browser HARs |
+| **HTTP E2E** | `e2e-http.spec.ts` | 10 | Multipart upload through NestJS HTTP server (same path as frontend) |
+| **Stress** | `e2e-stress.spec.ts` | 12 | 5 concurrent uploads, 87MB HAR, 500-entry HAR, rapid sequential, edge cases |
 
 ### Eval Suite (63 synthetic scenarios)
 
@@ -182,9 +207,53 @@ Tests run against the exact HAR files and prompts from the assignment specificat
 | JokeAPI | 1.7MB / 34 entries | `v2.jokeapi.dev/joke/Any?amount=5` | 100% |
 | JokeAPI (large) | 91MB / 1,727 entries | `v2.jokeapi.dev/joke/Any?amount=5` | 100% |
 
-The eval also **executes** the generated JokeAPI and SFGate curl commands against the live APIs and verifies real responses come back (5 jokes, weather data).
+### True End-to-End Pipeline Tests
 
-See [docs/EVAL-AND-TESTING.md](./docs/EVAL-AND-TESTING.md) for details on categories, fixtures, and adding new tests.
+Tests the full production path: **HAR file → `analyzeHar()` → LLM → curl → execute against live API → verify response**.
+
+Uses both the existing assignment HARs and **real browser-captured HARs** from a Playwright automation script that visits public websites (Open-Meteo, USGS Earthquakes, PokeAPI, Dog CEO, Hacker News).
+
+| Source | HARs Tested | What's Verified |
+|--------|------------|-----------------|
+| Assignment fixtures | 3 (jokes, weather, recipes) | Correct URL + method + confidence, then execute curl → verify response |
+| Synthetic fixtures | 3 (GraphQL, e-commerce, dashboard) | LLM matches correct API pattern |
+| Captured browser HARs | 6 (real sites via Playwright) | Pipeline handles real-world noise, curl executes against live APIs |
+| Edge cases | 3 (static-only, empty, invalid JSON) | Proper error handling |
+
+### HTTP Integration Tests
+
+Spins up the actual NestJS HTTP server and tests multipart file upload — the exact same code path the frontend uses:
+
+```
+POST /api/analyze (multipart: file + description)
+  → Controller → AnalysisService → OpenAI → curl gen
+  → Execute returned curl → verify live API response
+```
+
+### Stress / Load Tests
+
+| Test | What's Simulated |
+|------|-----------------|
+| 5 concurrent pipeline calls | Parallel `analyzeHar()` — all must succeed |
+| 3 concurrent HTTP uploads | Parallel `POST /api/analyze` |
+| 87MB HAR file | Large file processing without timeout |
+| 500+ entry synthetic HAR | Filtering performance under load |
+| 5 rapid sequential uploads | Rate limit behavior |
+| Consistency (3 identical runs) | Same input → same matched URL |
+| Edge cases | Empty HAR, static-only, unicode, 4000-char description |
+
+### Browser HAR Capture
+
+A Playwright script automates real browser visits and exports HAR files for testing:
+
+```bash
+npx playwright install chromium
+npx tsx test-fixtures/capture-real-hars.ts
+```
+
+Captures from: Open-Meteo, USGS Earthquakes, PokeAPI, Hacker News, Dog CEO, JSONPlaceholder. Output saved to `test-fixtures/captured/` (gitignored).
+
+See [docs/13-complete-test-suite-overview.md](./docs/13-complete-test-suite-overview.md) for the full test inventory.
 
 ---
 
@@ -268,3 +337,4 @@ npm run build
 | [09-CACHING-STRATEGIES.md](./docs/09-CACHING-STRATEGIES.md) | Research: exact-match & semantic caching, OpenAI prompt caching, cost savings |
 | [10-OBSERVABILITY.md](./docs/10-OBSERVABILITY.md) | Research: structured logging, request tracing, metrics, health checks |
 | [11-HAR-SIZE-LIMITS-AND-STREAMING.md](./docs/11-HAR-SIZE-LIMITS-AND-STREAMING.md) | Research: memory limits, streaming JSON parsers, chunked processing |
+| [13-complete-test-suite-overview.md](./docs/13-complete-test-suite-overview.md) | Complete test inventory: 334 tests across 15 files |

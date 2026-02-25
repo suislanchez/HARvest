@@ -17,6 +17,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../app.module';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { HarToCurlService } from './har-to-curl.service';
 
 // Skip entire suite if no API key (these hit real OpenAI)
@@ -36,6 +37,8 @@ describeIf('E2E HTTP — Multipart Upload → Real Pipeline → Execute', () => 
     })
       // Disable throttler so tests aren't rate-limited
       .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .overrideProvider(APP_GUARD)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -216,9 +219,9 @@ describeIf('E2E HTTP — Multipart Upload → Real Pipeline → Execute', () => 
         canExecute: true,
       },
       {
-        filename: 'jsonplaceholder-todos.har',
-        description: 'Find the REST API that fetches data',
-        expectedUrlContains: 'jsonplaceholder',
+        filename: 'dog-ceo-random.har',
+        description: 'Find the random dog image API',
+        expectedUrlContains: 'dog.ceo',
         canExecute: true,
       },
     ];

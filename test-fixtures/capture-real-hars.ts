@@ -7,16 +7,21 @@
  *
  * Usage:
  *   npx playwright install chromium
- *   npx ts-node test-fixtures/capture-real-hars.ts
+ *   npx tsx test-fixtures/capture-real-hars.ts
  *
  * Output: test-fixtures/captured/*.har (gitignored)
  */
 
 import { chromium, type Page } from 'playwright';
-import * as path from 'path';
-import * as fs from 'fs';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
-const OUTPUT_DIR = path.join(__dirname, 'captured');
+const __dirnameCompat = typeof __dirname !== 'undefined'
+  ? __dirname
+  : path.dirname(fileURLToPath(import.meta.url));
+
+const OUTPUT_DIR = path.join(__dirnameCompat, 'captured');
 
 interface CaptureTarget {
   name: string;
@@ -90,13 +95,18 @@ const targets: CaptureTarget[] = [
     filename: 'jsonplaceholder-todos.har',
     url: 'https://jsonplaceholder.typicode.com/',
     interact: async (page: Page) => {
-      // Visit specific API endpoints to generate traffic
-      await page.goto('https://jsonplaceholder.typicode.com/todos');
-      await page.waitForTimeout(1000);
-      await page.goto('https://jsonplaceholder.typicode.com/posts/1');
-      await page.waitForTimeout(1000);
-      await page.goto('https://jsonplaceholder.typicode.com/users');
-      await page.waitForTimeout(1000);
+      // Use fetch() from page context to create XHR-style API calls
+      // (navigating directly returns text/html content-type which gets filtered)
+      await page.evaluate(async () => {
+        await fetch('https://jsonplaceholder.typicode.com/todos');
+        await fetch('https://jsonplaceholder.typicode.com/posts/1');
+        await fetch('https://jsonplaceholder.typicode.com/users');
+        await fetch('https://jsonplaceholder.typicode.com/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'test', body: 'test post', userId: 1 }),
+        });
+      });
     },
     extraWait: 1000,
   },
