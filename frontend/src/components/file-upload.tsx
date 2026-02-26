@@ -23,14 +23,28 @@ export function FileUpload({ onFileLoad, isLoading }: FileUploadProps) {
   const processFile = useCallback(async (file: File) => {
     setError(null);
     try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      if (!parsed?.log?.entries) {
-        throw new Error('Invalid HAR file: missing log.entries');
+      const LARGE_FILE_THRESHOLD = 10 * 1024 * 1024; // 10MB
+
+      if (file.size > LARGE_FILE_THRESHOLD) {
+        // Large files: skip client-side parsing to avoid crashing the browser.
+        // Just validate the extension and pass the file through — the backend
+        // will parse it and return allRequests for the inspector table.
+        if (!file.name.endsWith('.har') && !file.name.endsWith('.json')) {
+          throw new Error('File must be a .har or .json file');
+        }
+        setFileName(file.name);
+        setFileSize(file.size);
+        onFileLoad(file, null);
+      } else {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (!parsed?.log?.entries) {
+          throw new Error('Invalid HAR file: missing log.entries');
+        }
+        setFileName(file.name);
+        setFileSize(file.size);
+        onFileLoad(file, parsed);
       }
-      setFileName(file.name);
-      setFileSize(file.size);
-      onFileLoad(file, parsed);
     } catch (e) {
       setError(e instanceof SyntaxError ? 'Invalid JSON file' : (e as Error).message);
       setFileName(null);

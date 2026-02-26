@@ -22,15 +22,23 @@ export function useHarData() {
     entries: [],
   });
 
-  const loadHar = useCallback((file: File, har: any) => {
-    const entries: HarEntry[] = (har.log.entries || []).map((entry: any) => ({
-      method: entry.request.method,
-      url: entry.request.url,
-      status: entry.response.status,
-      contentType: (entry.response.content?.mimeType || '').split(';')[0].trim(),
-      time: entry.time || 0,
-    }));
+  const loadHar = useCallback((file: File, har: any | null) => {
+    // har is null for large files (skipped client-side parsing).
+    // Entries will be populated from the backend response via loadEntries().
+    const entries: HarEntry[] = har
+      ? (har.log.entries || []).map((entry: any) => ({
+          method: entry.request.method,
+          url: entry.request.url,
+          status: entry.response.status,
+          contentType: (entry.response.content?.mimeType || '').split(';')[0].trim(),
+          time: entry.time || 0,
+        }))
+      : [];
     setState({ file, har, entries });
+  }, []);
+
+  const loadEntries = useCallback((entries: HarEntry[]) => {
+    setState((prev) => ({ ...prev, entries }));
   }, []);
 
   const reset = useCallback(() => {
@@ -40,6 +48,7 @@ export function useHarData() {
   return {
     ...state,
     loadHar,
+    loadEntries,
     reset,
     hasData: !!state.file,
   };

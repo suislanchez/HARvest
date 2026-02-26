@@ -22,7 +22,7 @@ export class AnalysisController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+      limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
       fileFilter: (_req, file, cb) => {
         // Accept .har and .json files
         if (

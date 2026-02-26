@@ -7,3 +7,5 @@ dist/
 .turbo/
 __recordings__/
 test-fixtures/captured/
+playwright-report/
+test-results/

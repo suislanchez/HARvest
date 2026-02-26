@@ -5,7 +5,16 @@
     "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
     "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
     "dev:backend": "npm run dev --workspace=backend",
-    "dev:frontend": "npm run dev --workspace=frontend"
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "test:e2e": "npx playwright test",
+    "test:e2e:mock": "npx playwright test --project=mock",
+    "test:e2e:live": "npx playwright test --project=live",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:report": "npx playwright show-report",
+    "capture:hars": "npx tsx test-fixtures/capture-real-hars.ts",
+    "capture:hars:extended": "npx tsx test-fixtures/capture-extended-hars.ts",
+    "capture:all": "npm run capture:hars && npm run capture:hars:extended",
+    "playwright:install": "npx playwright install chromium"
   },
   "workspaces": [
     "backend",
@@ -13,6 +22,6 @@
   ],
   "devDependencies": {
     "concurrently": "^9.1.0",
-    "playwright": "^1.58.2"
+    "@playwright/test": "^1.50.0"
   }
 }
