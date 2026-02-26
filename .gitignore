@@ -3,9 +3,12 @@
 node_modules/
 dist/
 .next/
-*.har
 .turbo/
 __recordings__/
-test-fixtures/captured/
+
+# Playwright artifacts
 playwright-report/
 test-results/
+
+# Large HAR files (>50MB)
+test-fixtures/jokes-large.har
