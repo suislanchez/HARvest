@@ -171,6 +171,12 @@ export default function Home() {
       setPipelineStep(4);
       setResult(data);
 
+      // For large files that skipped client-side parsing, populate
+      // the inspector table from the backend's allRequests response.
+      if (harData.entries.length === 0 && data.allRequests?.length > 0) {
+        harData.loadEntries(data.allRequests);
+      }
+
       setTimeout(() => {
         document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
@@ -193,7 +199,7 @@ export default function Home() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [harData.file]);
+  }, [harData.file, harData.entries.length, harData.loadEntries]);
 
   const handleExecute = useCallback(async () => {
     if (!result) return;
@@ -329,7 +335,7 @@ export default function Home() {
                     </li>
                     <li className="flex gap-2">
                       <span className="shrink-0">4.</span>
-                      <span>Press <kbd className="px-1 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded text-[10px] font-mono">{typeof window !== 'undefined' && /Mac/.test(navigator.userAgent) ? '\u2318' : 'Ctrl+'}Enter</kbd> for quick analyze</span>
+                      <span>Press <kbd suppressHydrationWarning className="px-1 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded text-[10px] font-mono">{typeof window !== 'undefined' && /Mac/.test(navigator.userAgent) ? '\u2318' : 'Ctrl+'}Enter</kbd> for quick analyze</span>
                     </li>
                   </ul>
                 </CardContent>
@@ -343,11 +349,17 @@ export default function Home() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">2. HAR Inspector</CardTitle>
-                  <Badge variant="outline">{harData.entries.length} requests</Badge>
+                  <Badge variant="outline">{harData.entries.length > 0 ? `${harData.entries.length} requests` : 'large file'}</Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                <HarInspector entries={harData.entries} matchedIndex={result?.topMatches?.[0]?.index} />
+                {harData.entries.length > 0 ? (
+                  <HarInspector entries={harData.entries} matchedIndex={result?.topMatches?.[0]?.index} />
+                ) : (
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center py-4">
+                    Large file — inspector will populate after analysis
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
