@@ -1,14 +1,14 @@
 import { AnalysisService } from './analysis.service';
 import { HarParserService } from './har-parser.service';
 import { HarToCurlService } from './har-to-curl.service';
-import { OpenaiService } from '../openai/openai.service';
+import { GroqService } from '../groq/groq.service';
 import type { Har, Entry } from 'har-format';
 
 describe('AnalysisService', () => {
   let service: AnalysisService;
   let harParser: HarParserService;
   let harToCurl: HarToCurlService;
-  let openai: jest.Mocked<OpenaiService>;
+  let llm: jest.Mocked<GroqService>;
 
   function makeEntry(url: string, method = 'GET'): Entry {
     return {
@@ -54,10 +54,10 @@ describe('AnalysisService', () => {
   beforeEach(() => {
     harParser = new HarParserService();
     harToCurl = new HarToCurlService();
-    openai = {
+    llm = {
       identifyApiRequest: jest.fn(),
     } as any;
-    service = new AnalysisService(harParser, harToCurl, openai);
+    service = new AnalysisService(harParser, harToCurl, llm);
   });
 
   it('should run the full pipeline and return curl + metadata', async () => {
@@ -67,7 +67,7 @@ describe('AnalysisService', () => {
     ];
     const buffer = makeHarBuffer(entries);
 
-    openai.identifyApiRequest.mockResolvedValue({
+    llm.identifyApiRequest.mockResolvedValue({
       matchIndex: 0,
       confidence: 0.95,
       reason: 'Matches user endpoint',
@@ -106,7 +106,7 @@ describe('AnalysisService', () => {
     await expect(service.analyzeHar(buffer, 'some api')).rejects.toThrow(
       'No API requests found',
     );
-    expect(openai.identifyApiRequest).not.toHaveBeenCalled();
+    expect(llm.identifyApiRequest).not.toHaveBeenCalled();
   });
 
   it('should populate allRequests with all entries (not just filtered)', async () => {
@@ -116,7 +116,7 @@ describe('AnalysisService', () => {
     const entries = [apiEntry, jsEntry];
     const buffer = makeHarBuffer(entries);
 
-    openai.identifyApiRequest.mockResolvedValue({
+    llm.identifyApiRequest.mockResolvedValue({
       matchIndex: 0,
       confidence: 0.9,
       reason: 'Data API',
@@ -139,7 +139,7 @@ describe('AnalysisService', () => {
     const entries = [makeEntry('https://api.example.com/users')];
     const buffer = makeHarBuffer(entries);
 
-    openai.identifyApiRequest.mockResolvedValue({
+    llm.identifyApiRequest.mockResolvedValue({
       matchIndex: 0,
       confidence: 0.9,
       reason: 'Match',
@@ -150,8 +150,8 @@ describe('AnalysisService', () => {
 
     await service.analyzeHar(buffer, 'users endpoint');
 
-    expect(openai.identifyApiRequest).toHaveBeenCalledTimes(1);
-    const [summary, description, count] = openai.identifyApiRequest.mock.calls[0];
+    expect(llm.identifyApiRequest).toHaveBeenCalledTimes(1);
+    const [summary, description, count] = llm.identifyApiRequest.mock.calls[0];
     expect(summary).toContain('api.example.com');
     expect(summary).toContain('/users');
     expect(description).toBe('users endpoint');
@@ -163,7 +163,7 @@ describe('AnalysisService', () => {
     entry.time = 2500;
     const buffer = makeHarBuffer([entry]);
 
-    openai.identifyApiRequest.mockResolvedValue({
+    llm.identifyApiRequest.mockResolvedValue({
       matchIndex: 0,
       confidence: 0.9,
       reason: 'Match',
@@ -181,7 +181,7 @@ describe('AnalysisService', () => {
     (entry as any).time = undefined;
     const buffer = makeHarBuffer([entry]);
 
-    openai.identifyApiRequest.mockResolvedValue({
+    llm.identifyApiRequest.mockResolvedValue({
       matchIndex: 0,
       confidence: 0.9,
       reason: 'Match',
@@ -199,7 +199,7 @@ describe('AnalysisService', () => {
     entry.response.content.mimeType = 'application/json; charset=utf-8';
     const buffer = makeHarBuffer([entry]);
 
-    openai.identifyApiRequest.mockResolvedValue({
+    llm.identifyApiRequest.mockResolvedValue({
       matchIndex: 0,
       confidence: 0.9,
       reason: 'Match',

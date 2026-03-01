@@ -3,6 +3,17 @@ import type { Har, Entry } from 'har-format';
 import { SKIP_DOMAINS } from '../../common/constants/skip-domains';
 import { SKIP_EXTENSIONS } from '../../common/constants/skip-extensions';
 
+export interface FilterOptions {
+  skipDataUris?: boolean;
+  skipFailed?: boolean;
+  skipCors?: boolean;
+  skipRedirects?: boolean;
+  skipStaticFiles?: boolean;
+  skipTrackingDomains?: boolean;
+  skipMimeTypes?: boolean;
+  skipMedia?: boolean;
+}
+
 export interface HarSummary {
   index: number;
   method: string;
@@ -39,57 +50,74 @@ export class HarParserService {
    * Pre-filter HAR entries to keep only likely API requests.
    * Conservative: only exclude what we're certain about.
    */
-  filterApiRequests(entries: Entry[]): Entry[] {
+  filterApiRequests(entries: Entry[], opts: FilterOptions = {}): Entry[] {
     return entries.filter((entry) => {
       const url = entry.request.url;
 
       // Skip data URIs and empty URLs
-      if (!url || url.startsWith('data:')) return false;
+      if (opts.skipDataUris !== false) {
+        if (!url || url.startsWith('data:')) return false;
+      }
 
       // Skip failed/aborted requests
-      if (entry.response.status === 0) return false;
+      if (opts.skipFailed !== false) {
+        if (entry.response.status === 0) return false;
+      }
 
       // Skip CORS preflight
-      if (entry.request.method === 'OPTIONS') return false;
+      if (opts.skipCors !== false) {
+        if (entry.request.method === 'OPTIONS') return false;
+      }
 
       // Skip redirects (the follow-up is a separate entry)
-      const status = entry.response.status;
-      if ([301, 302, 303, 307, 308].includes(status)) return false;
+      if (opts.skipRedirects !== false) {
+        const status = entry.response.status;
+        if ([301, 302, 303, 307, 308].includes(status)) return false;
+      }
 
       // Skip static file extensions
-      try {
-        const pathname = new URL(url).pathname;
-        if (SKIP_EXTENSIONS.test(pathname)) return false;
-      } catch {
-        // Invalid URL, skip
-        return false;
+      if (opts.skipStaticFiles !== false) {
+        try {
+          const pathname = new URL(url).pathname;
+          if (SKIP_EXTENSIONS.test(pathname)) return false;
+        } catch {
+          // Invalid URL, skip
+          return false;
+        }
       }
 
       // Skip known tracking/analytics domains
-      try {
-        const hostname = new URL(url).hostname;
-        if (SKIP_DOMAINS.some((domain) => hostname === domain || hostname.endsWith('.' + domain))) {
+      if (opts.skipTrackingDomains !== false) {
+        try {
+          const hostname = new URL(url).hostname;
+          if (SKIP_DOMAINS.some((domain) => hostname === domain || hostname.endsWith('.' + domain))) {
+            return false;
+          }
+        } catch {
           return false;
         }
-      } catch {
-        return false;
       }
 
       // Skip non-API MIME types in response
-      const mimeType = this.getBaseMimeType(entry.response.content?.mimeType || '');
-      const skipMimeTypes = [
-        'text/html',
-        'text/css',
-        'application/javascript',
-        'text/javascript',
-        'application/x-javascript',
-        'application/wasm',
-      ];
-      if (skipMimeTypes.includes(mimeType)) return false;
+      if (opts.skipMimeTypes !== false) {
+        const mimeType = this.getBaseMimeType(entry.response.content?.mimeType || '');
+        const skipMimeTypes = [
+          'text/html',
+          'text/css',
+          'application/javascript',
+          'text/javascript',
+          'application/x-javascript',
+          'application/wasm',
+        ];
+        if (skipMimeTypes.includes(mimeType)) return false;
+      }
 
       // Skip image and font responses
-      if (mimeType.startsWith('image/') || mimeType.startsWith('font/') || mimeType.startsWith('audio/') || mimeType.startsWith('video/')) {
-        return false;
+      if (opts.skipMedia !== false) {
+        const mimeType = this.getBaseMimeType(entry.response.content?.mimeType || '');
+        if (mimeType.startsWith('image/') || mimeType.startsWith('font/') || mimeType.startsWith('audio/') || mimeType.startsWith('video/')) {
+          return false;
+        }
       }
 
       return true;

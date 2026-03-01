@@ -3,10 +3,10 @@ import { AnalysisController } from './analysis.controller';
 import { AnalysisService } from './analysis.service';
 import { HarParserService } from './har-parser.service';
 import { HarToCurlService } from './har-to-curl.service';
-import { OpenaiModule } from '../openai/openai.module';
+import { GroqModule } from '../groq/groq.module';
 
 @Module({
-  imports: [OpenaiModule],
+  imports: [GroqModule],
   controllers: [AnalysisController],
   providers: [AnalysisService, HarParserService, HarToCurlService],
 })

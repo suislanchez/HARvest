@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../app.module';
-import { OpenaiService } from '../openai/openai.service';
+import { GroqService } from '../groq/groq.service';
 import { ThrottlerGuard } from '@nestjs/throttler';
 
 describe('AnalysisController (integration)', () => {
@@ -61,7 +61,7 @@ describe('AnalysisController (integration)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
-      .overrideProvider(OpenaiService)
+      .overrideProvider(GroqService)
       .useValue(mockOpenaiService)
       .overrideGuard(ThrottlerGuard)
       .useValue({ canActivate: () => true })

@@ -1,0 +1,283 @@
+{
+  "version": "1.0",
+  "name": "HARBench",
+  "description": "Ground truth benchmark for LLM-assisted API discovery from HAR files",
+  "cases": [
+    {
+      "id": "simple-weather",
+      "harFile": "test-fixtures/simple.har",
+      "description": "the weather forecast API",
+      "expectedUrlPattern": "/v3/wx/forecast",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "weather"
+    },
+    {
+      "id": "simple-joke",
+      "harFile": "test-fixtures/simple.har",
+      "description": "the joke API",
+      "expectedUrlPattern": "joke-api.appspot.com",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "basic"
+    },
+    {
+      "id": "simple-graphql-alerts",
+      "harFile": "test-fixtures/simple.har",
+      "description": "the GraphQL weather alerts query",
+      "expectedUrlPattern": "graphql",
+      "expectedBodyPattern": "GetWeatherAlerts",
+      "expectedMethod": "POST",
+      "difficulty": "easy",
+      "category": "graphql"
+    },
+    {
+      "id": "recipe-search",
+      "harFile": "test-fixtures/recipe-search.har",
+      "description": "the recipe search API",
+      "expectedUrlPattern": "/v2/search",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "search"
+    },
+    {
+      "id": "recipe-detail",
+      "harFile": "test-fixtures/recipe-search.har",
+      "description": "recipe detail endpoint",
+      "expectedUrlPattern": "/v2/recipes/",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "detail"
+    },
+    {
+      "id": "ecommerce-cart",
+      "harFile": "test-fixtures/ecommerce.har",
+      "description": "shopping cart API",
+      "expectedUrlPattern": "/v1/cart",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "ecommerce"
+    },
+    {
+      "id": "ecommerce-orders",
+      "harFile": "test-fixtures/ecommerce.har",
+      "description": "the checkout or order creation endpoint",
+      "expectedUrlPattern": "/v1/orders",
+      "expectedMethod": "POST",
+      "difficulty": "medium",
+      "category": "ecommerce"
+    },
+    {
+      "id": "ecommerce-stripe",
+      "harFile": "test-fixtures/ecommerce.har",
+      "description": "Stripe payment intent",
+      "expectedUrlPattern": "payment_intents",
+      "expectedMethod": "POST",
+      "difficulty": "medium",
+      "category": "payment"
+    },
+    {
+      "id": "graphql-profile",
+      "harFile": "test-fixtures/graphql-app.har",
+      "description": "the user profile query",
+      "expectedUrlPattern": "graphql",
+      "expectedBodyPattern": "GetUserProfile",
+      "expectedMethod": "POST",
+      "difficulty": "medium",
+      "category": "graphql"
+    },
+    {
+      "id": "graphql-feed",
+      "harFile": "test-fixtures/graphql-app.har",
+      "description": "the news feed or timeline",
+      "expectedUrlPattern": "graphql",
+      "expectedBodyPattern": "GetFeed",
+      "expectedMethod": "POST",
+      "difficulty": "medium",
+      "category": "graphql"
+    },
+    {
+      "id": "noisy-joke",
+      "harFile": "test-fixtures/multi-api-noisy.har",
+      "description": "joke API",
+      "expectedUrlPattern": "jokeapi",
+      "expectedMethod": "GET",
+      "difficulty": "medium",
+      "category": "basic"
+    },
+    {
+      "id": "noisy-weather",
+      "harFile": "test-fixtures/multi-api-noisy.har",
+      "description": "current weather data for a city",
+      "expectedUrlPattern": "/data/2.5/weather",
+      "expectedMethod": "GET",
+      "difficulty": "medium",
+      "category": "weather"
+    },
+    {
+      "id": "dashboard-alerts",
+      "harFile": "test-fixtures/spa-dashboard.har",
+      "description": "active critical alerts",
+      "expectedUrlPattern": "/alerts",
+      "expectedMethod": "GET",
+      "difficulty": "medium",
+      "category": "monitoring"
+    },
+    {
+      "id": "streaming-search",
+      "harFile": "test-fixtures/streaming-platform.har",
+      "description": "search for TV shows or movies",
+      "expectedUrlPattern": "/catalog/search",
+      "expectedMethod": "GET",
+      "difficulty": "medium",
+      "category": "search"
+    },
+    {
+      "id": "fintech-accounts",
+      "harFile": "test-fixtures/fintech-banking.har",
+      "description": "list of bank accounts",
+      "expectedUrlPattern": "/accounts",
+      "expectedMethod": "GET",
+      "difficulty": "medium",
+      "category": "fintech"
+    },
+    {
+      "id": "fintech-transfers",
+      "harFile": "test-fixtures/fintech-banking.har",
+      "description": "the money transfer or send money endpoint",
+      "expectedUrlPattern": "/transfers",
+      "expectedBodyPattern": "fromAccount",
+      "expectedMethod": "POST",
+      "difficulty": "hard",
+      "category": "fintech"
+    },
+    {
+      "id": "travel-flights",
+      "harFile": "test-fixtures/travel-booking.har",
+      "description": "flight search from San Francisco to Tokyo",
+      "expectedUrlPattern": "flights.example.com",
+      "expectedBodyPattern": "SFO",
+      "expectedMethod": "POST",
+      "difficulty": "medium",
+      "category": "travel"
+    },
+    {
+      "id": "travel-reservation",
+      "harFile": "test-fixtures/travel-booking.har",
+      "description": "the final booking or reservation creation",
+      "expectedUrlPattern": "/reservations",
+      "expectedBodyPattern": "flightId",
+      "expectedMethod": "POST",
+      "difficulty": "hard",
+      "category": "travel"
+    },
+    {
+      "id": "collab-documents",
+      "harFile": "test-fixtures/realtime-collab.har",
+      "description": "list of documents in a workspace",
+      "expectedUrlPattern": "/documents",
+      "expectedMethod": "GET",
+      "difficulty": "medium",
+      "category": "collaboration"
+    },
+    {
+      "id": "collab-comments",
+      "harFile": "test-fixtures/realtime-collab.har",
+      "description": "comments on a document",
+      "expectedUrlPattern": "/comments",
+      "expectedMethod": "GET",
+      "difficulty": "medium",
+      "category": "collaboration"
+    },
+    {
+      "id": "vague-buy",
+      "harFile": "test-fixtures/ecommerce.har",
+      "description": "the API call that happens when you click buy",
+      "expectedUrlPattern": "/v1/orders",
+      "expectedMethod": "POST",
+      "difficulty": "extreme",
+      "category": "vague"
+    },
+    {
+      "id": "vague-play",
+      "harFile": "test-fixtures/streaming-platform.har",
+      "description": "what loads when you press play",
+      "expectedUrlPattern": "/playback/start",
+      "expectedMethod": "POST",
+      "difficulty": "extreme",
+      "category": "vague"
+    },
+    {
+      "id": "captured-nasa",
+      "harFile": "test-fixtures/captured/nasa-apod.har",
+      "description": "NASA astronomy picture of the day API",
+      "expectedUrlPattern": "api.nasa.gov",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "public-api"
+    },
+    {
+      "id": "captured-pokemon",
+      "harFile": "test-fixtures/captured/pokeapi-pokemon.har",
+      "description": "the Pokemon data API",
+      "expectedUrlPattern": "pokeapi.co",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "public-api"
+    },
+    {
+      "id": "captured-weather",
+      "harFile": "test-fixtures/captured/open-meteo-weather.har",
+      "description": "the weather forecast data",
+      "expectedUrlPattern": "open-meteo.com",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "weather"
+    },
+    {
+      "id": "captured-earthquakes",
+      "harFile": "test-fixtures/captured/usgs-earthquakes.har",
+      "description": "earthquake data from USGS",
+      "expectedUrlPattern": "earthquake.usgs.gov",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "public-api"
+    },
+    {
+      "id": "captured-hackernews",
+      "harFile": "test-fixtures/captured/hackernews-firebase.har",
+      "description": "Hacker News top stories or items",
+      "expectedUrlPattern": "hacker-news",
+      "expectedMethod": "GET",
+      "difficulty": "medium",
+      "category": "public-api"
+    },
+    {
+      "id": "captured-todos",
+      "harFile": "test-fixtures/captured/jsonplaceholder-todos.har",
+      "description": "the todos list API",
+      "expectedUrlPattern": "jsonplaceholder",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "public-api"
+    },
+    {
+      "id": "captured-countries-graphql",
+      "harFile": "test-fixtures/captured/countries-graphql.har",
+      "description": "the countries GraphQL query",
+      "expectedUrlPattern": "countries.trevorblades.com",
+      "expectedMethod": "POST",
+      "difficulty": "medium",
+      "category": "graphql"
+    },
+    {
+      "id": "captured-books",
+      "harFile": "test-fixtures/captured/openlibrary-search.har",
+      "description": "book search API",
+      "expectedUrlPattern": "openlibrary.org",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "search"
+    }
+  ]
+}

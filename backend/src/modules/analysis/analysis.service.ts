@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { Entry } from 'har-format';
 import { HarParserService, HarSummary } from './har-parser.service';
 import { HarToCurlService } from './har-to-curl.service';
-import { OpenaiService, LlmMatchResult } from '../openai/openai.service';
+import { LlmMatchResult } from '../openai/openai.service';
+import { GroqService } from '../groq/groq.service';
 
 export interface AnalysisResult {
   curl: string;
@@ -50,7 +51,7 @@ export class AnalysisService {
   constructor(
     private readonly harParser: HarParserService,
     private readonly harToCurl: HarToCurlService,
-    private readonly openai: OpenaiService,
+    private readonly llm: GroqService,
   ) {}
 
   async analyzeHar(
@@ -86,7 +87,7 @@ export class AnalysisService {
 
     // Step 4: LLM matching
     const llmStart = performance.now();
-    const llmResult: LlmMatchResult = await this.openai.identifyApiRequest(
+    const llmResult: LlmMatchResult = await this.llm.identifyApiRequest(
       llmSummary,
       description,
       filtered.length,
@@ -120,10 +121,10 @@ export class AnalysisService {
       time: entry.time || 0,
     }));
 
-    // Compute cost: GPT-4o-mini pricing ($0.15/M input, $0.60/M output)
+    // Compute cost: Groq Llama-3.3-70b pricing ($0.59/M input, $0.79/M output)
     const cost =
-      (llmResult.promptTokens * 0.15) / 1_000_000 +
-      (llmResult.completionTokens * 0.60) / 1_000_000;
+      (llmResult.promptTokens * 0.59) / 1_000_000 +
+      (llmResult.completionTokens * 0.79) / 1_000_000;
 
     return {
       curl,
