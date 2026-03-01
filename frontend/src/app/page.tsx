@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Braces, Github, History, Info } from 'lucide-react';
 import { FileUpload } from '@/components/file-upload';
+import { AutoCapture } from '@/components/auto-capture';
 import { HarInspector } from '@/components/har-inspector';
 import { DescriptionInput } from '@/components/description-input';
 import { CurlOutput } from '@/components/curl-output';
@@ -309,8 +310,17 @@ export default function Home() {
                 {harData.hasData ? 'HAR File' : '1. Upload HAR File'}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <FileUpload onFileLoad={handleFileLoad} isLoading={isAnalyzing} />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-zinc-200 dark:border-zinc-800" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-white dark:bg-zinc-900 px-2 text-zinc-400 dark:text-zinc-500">or auto-capture from URL</span>
+                </div>
+              </div>
+              <AutoCapture onFileLoad={handleFileLoad} isLoading={isAnalyzing} />
             </CardContent>
           </Card>
 

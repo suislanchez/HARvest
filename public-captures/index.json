@@ -1,0 +1,450 @@
+{
+  "generatedAt": "2026-03-01T02:31:28Z",
+  "totalCaptures": 41,
+  "totalEntries": 2487,
+  "totalSizeMB": 123.6,
+  "captures": [
+    {
+      "filename": "arena.har",
+      "entries": 30,
+      "sizeKB": 2424,
+      "domains": [
+        "cdn.usefathom.com",
+        "images.ctfassets.net",
+        "www.are.na"
+      ]
+    },
+    {
+      "filename": "bundlephobia.har",
+      "entries": 37,
+      "sizeKB": 1028,
+      "domains": [
+        "api.amplitude.com",
+        "browser.sentry-cdn.com",
+        "bundlephobia.com",
+        "cdn.amplitude.com",
+        "fonts.gstatic.com"
+      ]
+    },
+    {
+      "filename": "caniuse.har",
+      "entries": 35,
+      "sizeKB": 2276,
+      "domains": [
+        "caniuse.com",
+        "ep1.adtrafficquality.google",
+        "ep2.adtrafficquality.google",
+        "fonts.googleapis.com",
+        "fonts.gstatic.com"
+      ]
+    },
+    {
+      "filename": "catfacts.har",
+      "entries": 12,
+      "sizeKB": 1989,
+      "domains": [
+        "catfact.ninja",
+        "static.cloudflareinsights.com"
+      ]
+    },
+    {
+      "filename": "cloudflare-radar.har",
+      "entries": 19,
+      "sizeKB": 814,
+      "domains": [
+        "",
+        "challenges.cloudflare.com",
+        "radar.cloudflare.com",
+        "static.cloudflareinsights.com"
+      ]
+    },
+    {
+      "filename": "countries-graphql.har",
+      "entries": 1,
+      "sizeKB": 3,
+      "domains": [
+        "countries.trevorblades.com"
+      ]
+    },
+    {
+      "filename": "crates-io.har",
+      "entries": 14,
+      "sizeKB": 2190,
+      "domains": [
+        "code.cdn.mozilla.net",
+        "crates.io",
+        "play.rust-lang.org"
+      ]
+    },
+    {
+      "filename": "devto.har",
+      "entries": 51,
+      "sizeKB": 3742,
+      "domains": [
+        "assets.dev.to",
+        "dev.to",
+        "forem.com",
+        "media2.dev.to",
+        "www.google-analytics.com"
+      ]
+    },
+    {
+      "filename": "dog-api.har",
+      "entries": 36,
+      "sizeKB": 2141,
+      "domains": [
+        "cdnjs.cloudflare.com",
+        "dog.ceo",
+        "ep1.adtrafficquality.google",
+        "ep2.adtrafficquality.google",
+        "fonts.googleapis.com"
+      ]
+    },
+    {
+      "filename": "dummyjson-ecommerce.har",
+      "entries": 50,
+      "sizeKB": 2384,
+      "domains": [
+        "dummyjson.com",
+        "ep1.adtrafficquality.google",
+        "ep2.adtrafficquality.google",
+        "fundingchoicesmessages.google.com",
+        "googleads.g.doubleclick.net"
+      ]
+    },
+    {
+      "filename": "exercism.har",
+      "entries": 172,
+      "sizeKB": 3125,
+      "domains": [
+        "assets.exercism.org",
+        "cloudflareinsights.com",
+        "exercism.org",
+        "static.cloudflareinsights.com"
+      ]
+    },
+    {
+      "filename": "github-trending.har",
+      "entries": 162,
+      "sizeKB": 6359,
+      "domains": [
+        "api.github.com",
+        "avatars.githubusercontent.com",
+        "collector.github.com",
+        "github.com",
+        "github.githubassets.com"
+      ]
+    },
+    {
+      "filename": "glitch.har",
+      "entries": 13,
+      "sizeKB": 776,
+      "domains": [
+        "blog.glitch.com",
+        "glitch.com"
+      ]
+    },
+    {
+      "filename": "hackernews.har",
+      "entries": 6,
+      "sizeKB": 67,
+      "domains": [
+        "news.ycombinator.com"
+      ]
+    },
+    {
+      "filename": "hn-algolia.har",
+      "entries": 16,
+      "sizeKB": 3266,
+      "domains": [
+        "c3-de-1.algolia.net",
+        "cdn.jsdelivr.net",
+        "hn.algolia.com",
+        "t32-usw-1.algolia.net",
+        "telemetry.algolia.com"
+      ]
+    },
+    {
+      "filename": "homebrew.har",
+      "entries": 7,
+      "sizeKB": 208,
+      "domains": [
+        "cdnjs.cloudflare.com",
+        "formulae.brew.sh"
+      ]
+    },
+    {
+      "filename": "httpbin-methods.har",
+      "entries": 18,
+      "sizeKB": 2367,
+      "domains": [
+        "fonts.googleapis.com",
+        "fonts.gstatic.com",
+        "httpbin.org"
+      ]
+    },
+    {
+      "filename": "indiehackers.har",
+      "entries": 63,
+      "sizeKB": 2635,
+      "domains": [
+        "cdn.cookielaw.org",
+        "cdn.jsdelivr.net",
+        "cookies-data.onetrust.io",
+        "geolocation.onetrust.com",
+        "i.imgur.com"
+      ]
+    },
+    {
+      "filename": "jsonbin.har",
+      "entries": 23,
+      "sizeKB": 1575,
+      "domains": [
+        "ajax.googleapis.com",
+        "bam.nr-data.net",
+        "cdn.linearicons.com",
+        "fonts.googleapis.com",
+        "fonts.gstatic.com"
+      ]
+    },
+    {
+      "filename": "jsonplaceholder-posts.har",
+      "entries": 23,
+      "sizeKB": 1648,
+      "domains": [
+        "cdnjs.cloudflare.com",
+        "github-production-user-asset-6210df.s3.amazonaws.com",
+        "github.com",
+        "jsonplaceholder.typicode.com",
+        "media.ethicalads.io"
+      ]
+    },
+    {
+      "filename": "lichess.har",
+      "entries": 78,
+      "sizeKB": 1280,
+      "domains": [
+        "image.lichess1.org",
+        "lichess.org",
+        "lichess1.org"
+      ]
+    },
+    {
+      "filename": "linear.har",
+      "entries": 149,
+      "sizeKB": 18340,
+      "domains": [
+        "api.linear.app",
+        "constellation.linear.app",
+        "e.linear.app",
+        "linear.app",
+        "static.linear.app"
+      ]
+    },
+    {
+      "filename": "lobsters.har",
+      "entries": 34,
+      "sizeKB": 250,
+      "domains": [
+        "lobste.rs"
+      ]
+    },
+    {
+      "filename": "mdn.har",
+      "entries": 77,
+      "sizeKB": 1774,
+      "domains": [
+        "developer.mozilla.org",
+        "incoming.telemetry.mozilla.org",
+        "www.google-analytics.com",
+        "www.googletagmanager.com"
+      ]
+    },
+    {
+      "filename": "nasa-apod.har",
+      "entries": 9,
+      "sizeKB": 794,
+      "domains": [
+        "api.nasa.gov",
+        "apod.nasa.gov",
+        "cdn.parsely.com",
+        "dap.digitalgov.gov",
+        "p1.parsely.com"
+      ]
+    },
+    {
+      "filename": "npm-react.har",
+      "entries": 25,
+      "sizeKB": 822,
+      "domains": [
+        "",
+        "challenges.cloudflare.com",
+        "www.npmjs.com"
+      ]
+    },
+    {
+      "filename": "observable.har",
+      "entries": 178,
+      "sizeKB": 6958,
+      "domains": [
+        "api.observablehq.com",
+        "events.observablehq.com",
+        "fonts.googleapis.com",
+        "o299802.ingest.sentry.io",
+        "observablehq.com"
+      ]
+    },
+    {
+      "filename": "open-meteo-weather.har",
+      "entries": 46,
+      "sizeKB": 679,
+      "domains": [
+        "api.open-meteo.com",
+        "open-meteo.com",
+        "static.cloudflareinsights.com"
+      ]
+    },
+    {
+      "filename": "openlibrary-books.har",
+      "entries": 110,
+      "sizeKB": 1818,
+      "domains": [
+        "apollo.archive.org",
+        "archive.org",
+        "athena.archive.org",
+        "covers.openlibrary.org",
+        "ia600505.us.archive.org"
+      ]
+    },
+    {
+      "filename": "pokeapi.har",
+      "entries": 43,
+      "sizeKB": 3785,
+      "domains": [
+        "fonts.googleapis.com",
+        "fonts.gstatic.com",
+        "fundingchoicesmessages.google.com",
+        "googleads.g.doubleclick.net",
+        "img.shields.io"
+      ]
+    },
+    {
+      "filename": "postman-echo.har",
+      "entries": 1,
+      "sizeKB": 6,
+      "domains": [
+        "postman-echo.com"
+      ]
+    },
+    {
+      "filename": "producthunt.har",
+      "entries": 27,
+      "sizeKB": 870,
+      "domains": [
+        "",
+        "challenges.cloudflare.com",
+        "static.cloudflareinsights.com",
+        "www.producthunt.com"
+      ]
+    },
+    {
+      "filename": "pypi-requests.har",
+      "entries": 46,
+      "sizeKB": 3866,
+      "domains": [
+        "2p66nmmycsj3.statuspage.io",
+        "analytics.python.org",
+        "cdn.jsdelivr.net",
+        "media.ethicalads.io",
+        "pypi-camo.freetls.fastly.net"
+      ]
+    },
+    {
+      "filename": "reqres-users.har",
+      "entries": 36,
+      "sizeKB": 4391,
+      "domains": [
+        "analytics.ahrefs.com",
+        "cdn.paritydeals.com",
+        "cdn.tailwindcss.com",
+        "cdnjs.cloudflare.com",
+        "eu-assets.i.posthog.com"
+      ]
+    },
+    {
+      "filename": "restcountries.har",
+      "entries": 10,
+      "sizeKB": 330,
+      "domains": [
+        "fonts.googleapis.com",
+        "fonts.gstatic.com",
+        "restcountries.com"
+      ]
+    },
+    {
+      "filename": "sourcegraph.har",
+      "entries": 421,
+      "sizeKB": 7657,
+      "domains": [
+        "",
+        "alb.reddit.com",
+        "analytics.twitter.com",
+        "api.claydar.com",
+        "api.hubapi.com"
+      ]
+    },
+    {
+      "filename": "spacex-graphql.har",
+      "entries": 2,
+      "sizeKB": 7,
+      "domains": [
+        "spacex-production.up.railway.app",
+        "studio.apollographql.com"
+      ]
+    },
+    {
+      "filename": "stackshare.har",
+      "entries": 85,
+      "sizeKB": 4517,
+      "domains": [
+        "km8652f2eg-dsn.algolia.net",
+        "stackshare.io",
+        "us-assets.i.posthog.com",
+        "us.i.posthog.com",
+        "www.google-analytics.com"
+      ]
+    },
+    {
+      "filename": "supabase.har",
+      "entries": 155,
+      "sizeKB": 14939,
+      "domains": [
+        "",
+        "aggregator.service.usercentrics.eu",
+        "api.hcaptcha.com",
+        "api.supabase.com",
+        "api.usercentrics.eu"
+      ]
+    },
+    {
+      "filename": "vercel-templates.har",
+      "entries": 128,
+      "sizeKB": 10370,
+      "domains": [
+        "nntahqi9c5-dsn.algolia.net",
+        "o205439.ingest.sentry.io",
+        "vercel.com"
+      ]
+    },
+    {
+      "filename": "wikipedia-search.har",
+      "entries": 39,
+      "sizeKB": 2084,
+      "domains": [
+        "auth.wikimedia.org",
+        "en.wikipedia.org",
+        "upload.wikimedia.org"
+      ]
+    }
+  ]
+}

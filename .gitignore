@@ -12,3 +12,6 @@ test-results/
 
 # Large HAR files (>50MB)
 test-fixtures/jokes-large.har
+
+# Public captures collection (large HAR files kept locally)
+public-captures/*.har
