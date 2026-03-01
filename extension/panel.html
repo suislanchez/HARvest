@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HAR Reverse Engineer</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div class="container">
+    <h1>HAR Reverse Engineer</h1>
+
+    <!-- Settings -->
+    <details class="config-section">
+      <summary>Settings</summary>
+      <label for="apiUrl">Backend URL</label>
+      <input id="apiUrl" class="config-input" type="url" value="http://localhost:3001/api/analyze" placeholder="http://localhost:3001/api/analyze">
+    </details>
+
+    <!-- Step 1: Capture -->
+    <section class="section">
+      <h2>1. Capture</h2>
+      <button id="captureBtn" class="btn btn-primary">Capture HAR</button>
+      <span id="requestCount" class="badge hidden"></span>
+      <div id="harWarning" class="warning hidden"></div>
+    </section>
+
+    <!-- Step 2: Describe -->
+    <section class="section">
+      <h2>2. Describe</h2>
+      <textarea
+        id="description"
+        placeholder="Describe the API you're looking for (min 5 chars)..."
+        rows="3"
+        disabled
+      ></textarea>
+    </section>
+
+    <!-- Step 3: Analyze -->
+    <section class="section">
+      <h2>3. Analyze</h2>
+      <button id="analyzeBtn" class="btn btn-primary" disabled>Find API</button>
+      <span id="spinner" class="spinner hidden" aria-label="Loading"></span>
+      <span id="statusText" class="status-text hidden" role="status" aria-live="polite"></span>
+      <div id="error" class="error hidden" role="alert" aria-live="assertive"></div>
+    </section>
+
+    <!-- Result -->
+    <section id="result" class="section hidden">
+      <h2>Result</h2>
+      <div class="result-header">
+        <span id="confidence" class="confidence-badge"></span>
+        <span id="matchedRequest" class="matched-request"></span>
+      </div>
+      <p id="reason" class="reason"></p>
+      <div class="curl-container">
+        <pre><code id="curlOutput"></code></pre>
+        <button id="copyBtn" class="btn btn-small">Copy curl</button>
+      </div>
+      <details id="otherMatches" class="other-matches hidden">
+        <summary>Other matches</summary>
+        <ul id="otherMatchesList"></ul>
+      </details>
+    </section>
+  </div>
+
+  <script src="panel.js"></script>
+</body>
+</html>
