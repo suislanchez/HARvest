@@ -7,8 +7,24 @@
   <link rel="stylesheet" href="panel.css">
 </head>
 <body>
+  <!-- Onboarding overlay -->
+  <div id="onboarding" class="onboarding-overlay hidden">
+    <div class="onboarding-card">
+      <h2>Welcome to HAR Reverse Engineer</h2>
+      <ol class="onboarding-steps">
+        <li><strong>Capture HAR</strong> — record all network requests from this tab</li>
+        <li><strong>Describe what you need</strong> — e.g. "the login API call"</li>
+        <li><strong>AI finds it</strong> — get the exact curl command to reproduce it</li>
+      </ol>
+      <button id="onboardingDismiss" class="btn btn-primary">Got it</button>
+    </div>
+  </div>
+
   <div class="container">
-    <h1>HAR Reverse Engineer</h1>
+    <div class="header-row">
+      <h1>HAR Reverse Engineer</h1>
+      <button id="themeToggle" class="theme-toggle" title="Toggle light/dark theme">&#9788;</button>
+    </div>
 
     <!-- Settings -->
     <details class="config-section">
@@ -20,9 +36,19 @@
     <!-- Step 1: Capture -->
     <section class="section">
       <h2>1. Capture</h2>
-      <button id="captureBtn" class="btn btn-primary">Capture HAR</button>
-      <span id="requestCount" class="badge hidden"></span>
+      <div class="capture-row">
+        <button id="captureBtn" class="btn btn-primary">Capture HAR</button>
+        <button id="liveToggle" class="btn btn-small">Live Capture</button>
+        <span id="liveIndicator" class="live-indicator hidden"><span class="live-dot"></span> <span id="liveCount">0</span></span>
+        <span id="requestCount" class="badge hidden"></span>
+      </div>
       <div id="harWarning" class="warning hidden"></div>
+      <div id="filterOptions" class="filter-options hidden">
+        <label><input type="checkbox" id="filterXhr"> XHR/Fetch only</label>
+        <label><input type="checkbox" id="filterAssets"> Hide images/fonts/CSS</label>
+        <label><input type="checkbox" id="filterTracking"> Hide tracking</label>
+      </div>
+      <div id="dropZone" class="drop-zone">or drop a .har file here</div>
     </section>
 
     <!-- Step 2: Describe -->
@@ -39,10 +65,14 @@
     <!-- Step 3: Analyze -->
     <section class="section">
       <h2>3. Analyze</h2>
-      <button id="analyzeBtn" class="btn btn-primary" disabled>Find API</button>
-      <span id="spinner" class="spinner hidden" aria-label="Loading"></span>
-      <span id="statusText" class="status-text hidden" role="status" aria-live="polite"></span>
+      <div class="analyze-row">
+        <button id="analyzeBtn" class="btn btn-primary" disabled>Find API</button>
+        <button id="diffBtn" class="btn btn-small hidden">Diff</button>
+        <span id="spinner" class="spinner hidden" aria-label="Loading"></span>
+        <span id="statusText" class="status-text hidden" role="status" aria-live="polite"></span>
+      </div>
       <div id="error" class="error hidden" role="alert" aria-live="assertive"></div>
+      <div id="diffResult" class="diff-result hidden"></div>
     </section>
 
     <!-- Result -->
@@ -55,14 +85,32 @@
       <p id="reason" class="reason"></p>
       <div class="curl-container">
         <pre><code id="curlOutput"></code></pre>
-        <button id="copyBtn" class="btn btn-small">Copy curl</button>
+        <div class="export-group">
+          <button class="btn btn-small active" data-format="curl">curl</button>
+          <button class="btn btn-small" data-format="fetch">fetch</button>
+          <button class="btn btn-small" data-format="axios">axios</button>
+          <button class="btn btn-small" data-format="python">Python</button>
+        </div>
       </div>
+      <details id="requestPreview" class="request-preview hidden">
+        <summary>Request details</summary>
+        <div id="requestPreviewContent"></div>
+      </details>
       <details id="otherMatches" class="other-matches hidden">
         <summary>Other matches</summary>
         <ul id="otherMatchesList"></ul>
       </details>
     </section>
+
+    <!-- History -->
+    <section id="historySection" class="section hidden">
+      <h2>History</h2>
+      <ul id="historyList"></ul>
+      <button id="clearHistory" class="btn btn-small">Clear history</button>
+    </section>
   </div>
+
+  <div class="shortcut-hint">Enter = Analyze &middot; Ctrl+C = Copy &middot; Esc = Clear</div>
 
   <script src="panel.js"></script>
 </body>
