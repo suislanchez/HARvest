@@ -2,13 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../app.module';
-import { GroqService } from '../groq/groq.service';
+import { LLM_PROVIDER } from '../llm/llm-provider.interface';
 import { ThrottlerGuard } from '@nestjs/throttler';
 
 describe('AnalysisController (integration)', () => {
   let app: INestApplication;
 
-  const mockOpenaiService = {
+  const mockLlmProvider = {
     identifyApiRequest: jest.fn().mockResolvedValue({
       matchIndex: 0,
       confidence: 0.95,
@@ -16,6 +16,8 @@ describe('AnalysisController (integration)', () => {
       topMatches: [
         { index: 0, confidence: 0.95, reason: 'Best match' },
       ],
+      promptTokens: 100,
+      completionTokens: 20,
     }),
   };
 
@@ -61,8 +63,8 @@ describe('AnalysisController (integration)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
-      .overrideProvider(GroqService)
-      .useValue(mockOpenaiService)
+      .overrideProvider(LLM_PROVIDER)
+      .useValue(mockLlmProvider)
       .overrideGuard(ThrottlerGuard)
       .useValue({ canActivate: () => true })
       .compile();
@@ -131,6 +133,7 @@ describe('AnalysisController (integration)', () => {
     expect(Array.isArray(res.body.allRequests)).toBe(true);
     expect(typeof res.body.stats.totalRequests).toBe('number');
     expect(typeof res.body.stats.filteredRequests).toBe('number');
-    expect(typeof res.body.stats.tokenEstimate).toBe('number');
+    expect(typeof res.body.stats.promptTokens).toBe('number');
+    expect(typeof res.body.stats.completionTokens).toBe('number');
   });
 });

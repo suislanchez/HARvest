@@ -1,14 +1,14 @@
 import { AnalysisService } from './analysis.service';
 import { HarParserService } from './har-parser.service';
 import { HarToCurlService } from './har-to-curl.service';
-import { GroqService } from '../groq/groq.service';
+import { LlmProvider } from '../llm/llm-provider.interface';
 import type { Har, Entry } from 'har-format';
 
 describe('AnalysisService', () => {
   let service: AnalysisService;
   let harParser: HarParserService;
   let harToCurl: HarToCurlService;
-  let llm: jest.Mocked<GroqService>;
+  let llm: jest.Mocked<LlmProvider>;
 
   function makeEntry(url: string, method = 'GET'): Entry {
     return {

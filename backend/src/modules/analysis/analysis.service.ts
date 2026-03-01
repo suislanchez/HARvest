@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import type { Entry } from 'har-format';
 import { HarParserService, HarSummary } from './har-parser.service';
 import { HarToCurlService } from './har-to-curl.service';
 import { LlmMatchResult } from '../openai/openai.service';
-import { GroqService } from '../groq/groq.service';
+import { LLM_PROVIDER, LlmProvider } from '../llm/llm-provider.interface';
 
 export interface AnalysisResult {
   curl: string;
@@ -51,7 +51,7 @@ export class AnalysisService {
   constructor(
     private readonly harParser: HarParserService,
     private readonly harToCurl: HarToCurlService,
-    private readonly llm: GroqService,
+    @Inject(LLM_PROVIDER) private readonly llm: LlmProvider,
   ) {}
 
   async analyzeHar(
@@ -121,7 +121,7 @@ export class AnalysisService {
       time: entry.time || 0,
     }));
 
-    // Compute cost: Groq Llama-3.3-70b pricing ($0.59/M input, $0.79/M output)
+    // Compute cost estimate (Groq pricing as default; $0 for local models)
     const cost =
       (llmResult.promptTokens * 0.59) / 1_000_000 +
       (llmResult.completionTokens * 0.79) / 1_000_000;

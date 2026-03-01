@@ -11,13 +11,21 @@ Upload a HAR file, describe an API in plain English, get a ready-to-use curl com
 
 An 8-layer filtering pipeline removes ~85% of noise (static assets, tracking pixels, CORS preflights, redirects), deduplicates repeated requests, and summarizes what's left into a token-efficient format. An LLM semantically matches your description to the right request. The curl command is generated deterministically from the original HAR entry — the LLM never touches curl generation, so there's zero hallucination.
 
+**Works with cloud APIs or 100% locally** — run with OpenAI, Groq (Llama-3.3-70b), or Ollama for zero-cost, fully private analysis.
+
 ## Setup
 
 ```bash
 git clone <repo-url> && cd har-reverse-engineer
 
-# Configure your API key
-cp .env.example .env    # Add your OPENAI_API_KEY
+# Option A: Cloud API (Groq — fast, cheap)
+echo "GROQ_API_KEY=your_key_here" > .env
+echo "LLM_PROVIDER=groq" >> .env
+
+# Option B: Fully local (zero cost, zero data leaves your machine)
+brew install ollama && ollama serve
+ollama pull qwen2.5:7b   # 98.4% accuracy, 4.7GB
+echo "LLM_PROVIDER=local" > .env
 
 # Install and start
 npm install
@@ -28,15 +36,28 @@ npm run dev             # Opens http://localhost:3000
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `OPENAI_API_KEY` | Yes | — | Your OpenAI API key |
-| `OPENAI_MODEL` | No | `gpt-4o-mini` | Model for request matching |
+| `LLM_PROVIDER` | No | `groq` | LLM backend: `local`, `groq`, or `openai` |
+| `GROQ_API_KEY` | If groq | — | Groq API key (Llama-3.3-70b) |
+| `OPENAI_API_KEY` | If openai | — | OpenAI API key (GPT-4o-mini) |
+| `LOCAL_LLM_MODEL` | No | `qwen2.5:3b` | Ollama model name for local mode |
 | `CORS_ORIGIN` | No | `http://localhost:3000` | Allowed CORS origin |
+
+### LLM Provider Comparison
+
+| Provider | Model | Accuracy | Latency | Cost | Privacy |
+|----------|-------|----------|---------|------|---------|
+| **Local (Ollama)** | qwen2.5:7b | **98.4%** | ~20s | **$0.00** | Data stays local |
+| **Local (Ollama)** | phi4-mini | 90.5% | **~3s** | **$0.00** | Data stays local |
+| **Groq** | Llama-3.3-70b | 100% | ~0.5s | ~$0.0005/q | Cloud API |
+| **OpenAI** | GPT-4o-mini | 100% | ~2s | ~$0.0002/q | Cloud API |
 
 ## Features
 
 - **8-layer filtering pipeline** — removes static assets, tracking/analytics, CORS preflights, redirects, non-API MIME types
 - **Smart deduplication** — `/users/123` and `/users/456` collapse into `/users/{id} (×2)`
 - **GraphQL support** — requests differentiated by `operationName`
+- **3 LLM providers** — OpenAI, Groq (Llama), or local Ollama (zero cost)
+- **100% offline mode** — run entirely on your machine with no API calls
 - **In-browser execution** — run the generated curl via an SSRF-protected proxy
 - **Response diff** — compare original HAR response with live execution
 - **Multi-language output** — curl, Python, JavaScript, Go, Ruby
@@ -111,16 +132,28 @@ npm run capture:all           # Both
 
 ### Backend Test Suite
 
-~334 tests across 15 files in Jest.
+189 unit tests + comprehensive eval & e2e suites across 20+ files in Jest.
 
 ```bash
 cd backend
 
-npx jest                                           # All tests
-npx jest har-parser har-to-curl analysis.service   # Unit tests (no API key)
-npx jest e2e-pipeline --testTimeout=120000         # Pipeline E2E (needs key)
-npx jest e2e-stress --testTimeout=300000           # Stress tests
+npx jest                                           # All unit tests (189 tests, no API key needed)
+npx jest har-parser har-to-curl analysis.service   # Core unit tests
+npx jest e2e-local-pipeline --testTimeout=300000   # Local LLM E2E (needs Ollama, no API key)
+npx jest e2e-pipeline --testTimeout=120000         # Cloud LLM E2E (needs API key)
+npx jest eval-local-full --testTimeout=900000 --runInBand  # Full 63-case local benchmark
+npx jest eval-local --testTimeout=600000 --runInBand       # Quick 13-case, 6 models
+npx jest ablation --testTimeout=600000 --runInBand         # Ablation study (needs Groq key)
 ```
+
+### Benchmark Results (63 Cases)
+
+| Model | Accuracy | Easy | Medium | Hard | Extreme | Cost |
+|-------|----------|------|--------|------|---------|------|
+| GPT-4o-mini (cloud) | 100% | 6/6 | 24/24 | 23/23 | 10/10 | ~$0.01 |
+| Llama-3.3-70b (Groq) | 100% | 6/6 | 24/24 | 23/23 | 10/10 | ~$0.03 |
+| **qwen2.5:7b (local)** | **98.4%** | 6/6 | 24/24 | 22/23 | 10/10 | **$0.00** |
+| phi4-mini (local) | 90.5% | 5/6 | 22/24 | 21/23 | 9/10 | **$0.00** |
 
 ## Architecture
 
@@ -128,7 +161,10 @@ npx jest e2e-stress --testTimeout=300000           # Stress tests
 har-reverse-engineer/
 ├── backend/              NestJS 11 API server (port 3001)
 │   ├── analysis/         HAR parsing, filtering, dedup, summarization, curl gen
-│   └── openai/           LLM integration for semantic matching
+│   ├── llm/              Provider interface (OpenAI, Groq, Local)
+│   ├── openai/           OpenAI LLM provider
+│   ├── groq/             Groq/Llama LLM provider
+│   └── local-llm/        Ollama local LLM provider (zero cost)
 ├── frontend/             Next.js 16 app (port 3000)
 │   ├── components/       Upload, inspector, curl output, response viewer, diffs
 │   └── api/proxy/        SSRF-protected curl execution proxy
@@ -138,6 +174,8 @@ har-reverse-engineer/
 │   ├── captured/         16 Playwright-captured real browser HARs
 │   ├── capture-real-hars.ts       Original 6-target capture script
 │   └── capture-extended-hars.ts   Extended 10-target capture script
+├── benchmark/            HARBench ground truth + CSV results
+├── paper.md              Research paper (HARvest: LLM-Assisted API Discovery)
 └── docs/                 Architecture docs and research notes
 ```
 
@@ -174,7 +212,7 @@ Upload .har → Parse → 8-layer filter (~85% removed) → Deduplicate → Summ
 | Backend | NestJS 11, TypeScript 5.7 |
 | Frontend | Next.js 16, React 19, Tailwind CSS 4 |
 | Components | shadcn/ui, Radix UI, TanStack React Table 8 |
-| LLM | OpenAI SDK 6 (gpt-4o-mini) |
+| LLM | OpenAI SDK 6 (GPT-4o-mini, Groq/Llama, Ollama local) |
 | Testing | Jest 30, Playwright |
 
 ## Keyboard Shortcuts

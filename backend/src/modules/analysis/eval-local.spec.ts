@@ -57,6 +57,8 @@ const LOCAL_MODELS = [
   'llama3.2:1b',
   'llama3.2:3b',
   'qwen2.5:3b',
+  'qwen2.5:7b',
+  'gemma3:4b',
   'phi4-mini',
 ];
 
