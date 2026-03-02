@@ -15,3 +15,11 @@ test-fixtures/jokes-large.har
 
 # Public captures collection (large HAR files kept locally)
 public-captures/*.har
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.fls
+*.fdb_latexmk
