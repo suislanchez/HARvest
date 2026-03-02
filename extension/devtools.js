@@ -1,5 +1,5 @@
 chrome.devtools.panels.create(
-  'HAR Reverse Engineer',
+  'HARvest',
   'icons/icon16.png',
   'panel.html'
 );

@@ -14,8 +14,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HAR Reverse Engineer",
-  description: "Upload a HAR file, describe an API, get a curl command",
+  title: "HARvest API Reverse Engineer",
+  description: "Reverse engineer any API from browser traffic — upload a HAR file, describe what you need, get a ready-to-use curl command",
 };
 
 export default function RootLayout({

@@ -1,98 +1,80 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# HARvest Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS 11 API server powering HARvest API Reverse Engineer.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## Quick Start
 
 ```bash
-$ npm install
+npm install
+npm run start:dev     # http://localhost:3001
 ```
 
-## Compile and run the project
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/analyze` | Upload HAR + description, get matched curl |
+| `GET` | `/api/health` | Health check (uptime, memory, status) |
+| `POST` | `/api/capture` | Store captured HAR data |
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_PROVIDER` | `groq` | Provider: `local`, `groq`, or `openai` |
+| `LLM_FALLBACK` | — | Fallback chain (e.g. `groq,local`) |
+| `GROQ_API_KEY` | — | Groq API key |
+| `OPENAI_API_KEY` | — | OpenAI API key |
+| `LOCAL_LLM_MODEL` | `qwen2.5:3b` | Ollama model for local mode |
+| `LOCAL_LLM_BASE_URL` | `http://localhost:11434/v1` | Ollama API URL |
+| `CORS_ORIGIN` | `http://localhost:3000` | Allowed CORS origins (comma-separated) |
+
+## CLI
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npx harvest-api capture.har --description "the weather API"
+npx harvest-api capture.har -d "login" --provider local --model qwen2.5:7b
+npx harvest-api capture.har -d "cart" --json --top 3
 ```
 
-## Run tests
+The CLI supports SIGINT/SIGTERM for clean cancellation and has a 60s LLM timeout.
+
+## Architecture
+
+```
+src/
+├── main.ts                      App bootstrap + graceful shutdown
+├── cli.ts                       CLI tool with signal handling
+├── app.module.ts                Root module (throttler + health)
+├── common/
+│   ├── utils/llm-retry.ts       Retry utility (timeout + backoff)
+│   ├── constants/               Skip domains, extensions, headers
+│   └── filters/                 Global exception filter
+└── modules/
+    ├── analysis/                HAR parse → filter → dedup → summarize → match
+    ├── health/                  GET /api/health endpoint
+    ├── llm/                     Provider interface + fallback chain
+    ├── openai/                  OpenAI provider (with retry, 30s timeout)
+    ├── groq/                    Groq provider (with retry, 30s timeout)
+    ├── local-llm/               Ollama provider (with retry, 60s timeout)
+    └── capture/                 HAR capture storage
+```
+
+## Fault Tolerance
+
+- **LLM retry**: 2 retries with exponential backoff on timeout, 429, 5xx, connection errors
+- **Per-attempt timeout**: 30s cloud, 60s local (via AbortController)
+- **Token overflow**: Summaries capped at 100k chars (~25k tokens), truncated at last complete line
+- **Provider fallback**: `LLM_FALLBACK=groq,local` tries providers in order
+- **Graceful shutdown**: `app.enableShutdownHooks()` for clean process termination
+- **Health check**: `GET /api/health` returns status, uptime, memory usage
+
+## Tests
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npx jest                                          # 221 unit tests
+npx jest --testPathIgnorePatterns='eval|e2e|ablation|performance|quantized'  # Core tests only
+npx jest llm-retry                                # Retry utility tests
+npx jest fallback-llm                             # Fallback chain tests
+npx jest health                                   # Health endpoint tests
 ```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

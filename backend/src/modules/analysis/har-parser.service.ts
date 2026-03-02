@@ -25,6 +25,9 @@ export interface HarSummary {
   summary: string;
 }
 
+/** Maximum characters for the LLM summary (~25k tokens) */
+const MAX_SUMMARY_CHARS = 100_000;
+
 @Injectable()
 export class HarParserService {
   /**
@@ -388,7 +391,17 @@ export class HarParserService {
       ? `=== HAR Analysis: ${dedupedCount} unique API requests (${entries.length} total, duplicates collapsed) from ${totalCount} raw entries ===`
       : `=== HAR Analysis: ${entries.length} API requests from ${totalCount} total ===`;
 
-    const summary = [headerLine, '', ...lines].join('\n').trim();
+    let summary = [headerLine, '', ...lines].join('\n').trim();
+
+    // Truncate if summary exceeds token limit
+    if (summary.length > MAX_SUMMARY_CHARS) {
+      // Find last complete line within the limit
+      const truncated = summary.substring(0, MAX_SUMMARY_CHARS);
+      const lastNewline = truncated.lastIndexOf('\n');
+      summary = (lastNewline > 0 ? truncated.substring(0, lastNewline) : truncated) +
+        '\n[TRUNCATED — summary exceeded token limit]';
+    }
+
     return { summary, uniqueCount: dedupedCount };
   }
 

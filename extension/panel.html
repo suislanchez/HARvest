@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>HAR Reverse Engineer</title>
+  <title>HARvest API Reverse Engineer</title>
   <link rel="stylesheet" href="panel.css">
 </head>
 <body>
   <!-- Onboarding overlay -->
   <div id="onboarding" class="onboarding-overlay hidden">
     <div class="onboarding-card">
-      <h2>Welcome to HAR Reverse Engineer</h2>
+      <h2>Welcome to HARvest</h2>
       <ol class="onboarding-steps">
         <li><strong>Capture HAR</strong> — record all network requests from this tab</li>
         <li><strong>Describe what you need</strong> — e.g. "the login API call"</li>
@@ -22,7 +22,10 @@
 
   <div class="container">
     <div class="header-row">
-      <h1>HAR Reverse Engineer</h1>
+      <div class="header-left">
+        <span id="connectionDot" class="dot dot-yellow" title="Checking backend..."></span>
+        <h1>HARvest</h1>
+      </div>
       <button id="themeToggle" class="theme-toggle" title="Toggle light/dark theme">&#9788;</button>
     </div>
 

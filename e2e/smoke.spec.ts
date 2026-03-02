@@ -6,7 +6,7 @@ test.describe('Smoke — Page loads correctly', () => {
   });
 
   test('page title and header are visible', async ({ page }) => {
-    await expect(page.locator('text=HAR Reverse Engineer')).toBeVisible();
+    await expect(page.locator('text=HARvest')).toBeVisible();
   });
 
   test('hero text is visible', async ({ page }) => {

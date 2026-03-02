@@ -1,4 +1,6 @@
 const DEFAULT_API_URL = 'http://localhost:3001/api/analyze';
+const LIVE_CAPTURE_WARN_BYTES = 50 * 1024 * 1024; // 50 MB
+const LIVE_CAPTURE_MAX_BYTES = 100 * 1024 * 1024; // 100 MB
 
 // --- DOM refs ---
 const captureBtn = document.getElementById('captureBtn');
@@ -36,6 +38,7 @@ const historyList = document.getElementById('historyList');
 const clearHistoryBtn = document.getElementById('clearHistory');
 const onboarding = document.getElementById('onboarding');
 const onboardingDismiss = document.getElementById('onboardingDismiss');
+const connectionDot = document.getElementById('connectionDot');
 
 // --- State ---
 let harData = null;
@@ -91,10 +94,95 @@ function formatError(err) {
 }
 
 // =====================
+// FETCH WITH RETRY
+// =====================
+async function fetchWithRetry(url, opts = {}, retries = 2) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, opts);
+      if (res.status === 429 || res.status >= 500) {
+        throw new HttpError(res.status, `Server error ${res.status}`);
+      }
+      return res;
+    } catch (err) {
+      lastError = err;
+      const isRetryable = (err instanceof HttpError && (err.status === 429 || err.status >= 500)) ||
+        err.message === 'Failed to fetch' ||
+        err.name === 'TimeoutError';
+      if (attempt < retries && isRetryable) {
+        const delay = 1000 * Math.pow(2, attempt);
+        await new Promise((r) => setTimeout(r, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw lastError;
+}
+
+// =====================
+// CONNECTION STATUS
+// =====================
+let healthInterval = null;
+
+function getBaseUrl() {
+  const analyzeUrl = getApiUrl();
+  // Derive base URL from analyze endpoint
+  return analyzeUrl.replace(/\/analyze\/?$/, '');
+}
+
+async function checkHealth() {
+  if (!connectionDot) return;
+  try {
+    const res = await fetch(getBaseUrl() + '/health', {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      connectionDot.className = 'dot dot-green';
+      connectionDot.title = 'Backend connected';
+    } else {
+      connectionDot.className = 'dot dot-yellow';
+      connectionDot.title = 'Backend responded with error';
+    }
+  } catch {
+    connectionDot.className = 'dot dot-red';
+    connectionDot.title = 'Backend unreachable';
+  }
+}
+
+// Start health check polling
+checkHealth();
+healthInterval = setInterval(checkHealth, 30_000);
+
+// =====================
+// SAFE CHROME STORAGE
+// =====================
+function safeStorageGet(key, callback) {
+  chrome.storage.local.get(key, (data) => {
+    if (chrome.runtime.lastError) {
+      console.warn('chrome.storage.get error:', chrome.runtime.lastError.message);
+      callback({});
+      return;
+    }
+    callback(data);
+  });
+}
+
+function safeStorageSet(obj, callback) {
+  chrome.storage.local.set(obj, () => {
+    if (chrome.runtime.lastError) {
+      console.warn('chrome.storage.set error:', chrome.runtime.lastError.message);
+    }
+    if (callback) callback();
+  });
+}
+
+// =====================
 // ONBOARDING
 // =====================
 (function initOnboarding() {
-  chrome.storage.local.get('onboarded', (data) => {
+  safeStorageGet('onboarded', (data) => {
     if (!data.onboarded) {
       onboarding.classList.remove('hidden');
     }
@@ -103,14 +191,14 @@ function formatError(err) {
 
 onboardingDismiss.addEventListener('click', () => {
   onboarding.classList.add('hidden');
-  chrome.storage.local.set({ onboarded: true });
+  safeStorageSet({ onboarded: true });
 });
 
 // =====================
 // THEME TOGGLE
 // =====================
 (function initTheme() {
-  chrome.storage.local.get('theme', (data) => {
+  safeStorageGet('theme', (data) => {
     if (data.theme === 'light') {
       document.body.dataset.theme = 'light';
       themeToggle.textContent = '\u263E'; // moon
@@ -123,11 +211,11 @@ themeToggle.addEventListener('click', () => {
   if (isLight) {
     delete document.body.dataset.theme;
     themeToggle.textContent = '\u2606'; // sun
-    chrome.storage.local.set({ theme: 'dark' });
+    safeStorageSet({ theme: 'dark' });
   } else {
     document.body.dataset.theme = 'light';
     themeToggle.textContent = '\u263E'; // moon
-    chrome.storage.local.set({ theme: 'light' });
+    safeStorageSet({ theme: 'light' });
   }
 });
 
@@ -258,7 +346,24 @@ function startLiveCapture() {
   hideError();
   harWarning.classList.add('hidden');
 
+  let liveSizeEstimate = 0;
+
   liveListener = (request) => {
+    // Estimate size of this entry
+    const entrySize = JSON.stringify(request).length;
+    liveSizeEstimate += entrySize;
+
+    if (liveSizeEstimate > LIVE_CAPTURE_MAX_BYTES) {
+      showError('Live capture stopped: exceeded 100 MB limit. Analyze what you have or start a new capture.');
+      stopLiveCapture();
+      return;
+    }
+
+    if (liveSizeEstimate > LIVE_CAPTURE_WARN_BYTES && !harWarning.textContent) {
+      harWarning.textContent = `Warning: live capture is ${Math.round(liveSizeEstimate / (1024 * 1024))} MB and growing.`;
+      harWarning.classList.remove('hidden');
+    }
+
     liveEntries.push(request);
     liveCountEl.textContent = String(liveEntries.length);
   };
@@ -289,7 +394,7 @@ function stopLiveCapture() {
   // Wrap entries into HAR format
   const harLog = {
     version: '1.2',
-    creator: { name: 'HAR Reverse Engineer (live)', version: '0.3.0' },
+    creator: { name: 'HARvest (live)', version: '0.4.0' },
     entries: liveEntries.map((req) => {
       // onRequestFinished gives us a HAR entry-like object
       return req;
@@ -490,7 +595,7 @@ async function runAnalysis(customHarData) {
     formData.append('file', file);
     formData.append('description', desc);
 
-    const res = await fetch(getApiUrl(), {
+    const res = await fetchWithRetry(getApiUrl(), {
       method: 'POST',
       body: formData,
       signal: AbortSignal.timeout(60_000),
@@ -863,7 +968,7 @@ async function copyToClipboard(text, feedbackEl) {
 // ANALYSIS HISTORY
 // =====================
 function saveToHistory(desc, data) {
-  chrome.storage.local.get('har_history', (stored) => {
+  safeStorageGet('har_history', (stored) => {
     const history = stored.har_history || [];
 
     history.unshift({
@@ -879,14 +984,14 @@ function saveToHistory(desc, data) {
     // Cap at 50
     if (history.length > 50) history.length = 50;
 
-    chrome.storage.local.set({ har_history: history }, () => {
+    safeStorageSet({ har_history: history }, () => {
       renderHistory(history);
     });
   });
 }
 
 function loadHistory() {
-  chrome.storage.local.get('har_history', (stored) => {
+  safeStorageGet('har_history', (stored) => {
     const history = stored.har_history || [];
     renderHistory(history);
   });
@@ -938,7 +1043,7 @@ function renderHistory(history) {
 
 clearHistoryBtn.addEventListener('click', () => {
   if (!confirm('Clear all analysis history?')) return;
-  chrome.storage.local.set({ har_history: [] }, () => {
+  safeStorageSet({ har_history: [] }, () => {
     renderHistory([]);
   });
 });

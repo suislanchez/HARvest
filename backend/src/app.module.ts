@@ -4,6 +4,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AnalysisModule } from './modules/analysis/analysis.module';
 import { CaptureModule } from './modules/capture/capture.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { CaptureModule } from './modules/capture/capture.module';
     ]),
     AnalysisModule,
     CaptureModule,
+    HealthModule,
   ],
   providers: [
     {

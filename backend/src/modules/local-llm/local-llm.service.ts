@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { LlmMatchResult } from '../openai/openai.service';
+import { withRetry } from '../../common/utils/llm-retry';
 
 /**
  * Local LLM provider via Ollama (OpenAI-compatible API on localhost).
@@ -36,6 +37,7 @@ export class LocalLlmService {
     summary: string,
     userDescription: string,
     totalEntries: number,
+    signal?: AbortSignal,
   ): Promise<LlmMatchResult> {
     const systemPrompt = `You are an API reverse-engineering expert. You analyze HTTP request summaries from HAR files and identify which request best matches a user's description.
 
@@ -69,29 +71,47 @@ Identify the best matching request(s). Return JSON only.`;
 
     const start = Date.now();
 
+    const retryOpts = { timeoutMs: 60_000 };
+
     // Try with json format first, fall back to plain if model doesn't support it
     let content: string | null = null;
     try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-      });
+      const response = await withRetry(
+        (retrySignal) =>
+          this.client.chat.completions.create(
+            {
+              model: this.model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0.1,
+            },
+            { signal: signal ?? retrySignal },
+          ),
+        this.logger,
+        retryOpts,
+      );
       content = response.choices[0]?.message?.content;
     } catch {
       // Some models don't support json_object format, retry without it
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.1,
-      });
+      const response = await withRetry(
+        (retrySignal) =>
+          this.client.chat.completions.create(
+            {
+              model: this.model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+              temperature: 0.1,
+            },
+            { signal: signal ?? retrySignal },
+          ),
+        this.logger,
+        retryOpts,
+      );
       content = response.choices[0]?.message?.content;
     }
 

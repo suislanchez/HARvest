@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Braces, Github, History, Info } from 'lucide-react';
 import { FileUpload } from '@/components/file-upload';
 import { AutoCapture } from '@/components/auto-capture';
@@ -93,6 +93,7 @@ function PipelineStepper({ currentStep }: { currentStep: number }) {
 
 export default function Home() {
   const harData = useHarData();
+  const abortRef = useRef<AbortController | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(0);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -155,8 +156,20 @@ export default function Home() {
     setEditedCurl(null);
   }, [harData]);
 
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
+
   const handleAnalyze = useCallback(async (description: string) => {
     if (!harData.file) return;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    // 90s analysis timeout
+    const timeout = setTimeout(() => controller.abort(), 90_000);
+
     setIsAnalyzing(true);
     setError(null);
     setResult(null);
@@ -171,6 +184,7 @@ export default function Home() {
       const res = await fetch('http://localhost:3001/api/analyze', {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -206,8 +220,14 @@ export default function Home() {
         confidence: data.confidence,
       });
     } catch (e) {
-      setError((e as Error).message);
+      if ((e as Error).name === 'AbortError') {
+        setError('Analysis cancelled');
+      } else {
+        setError((e as Error).message);
+      }
     } finally {
+      clearTimeout(timeout);
+      abortRef.current = null;
       setIsAnalyzing(false);
     }
   }, [harData.file, harData.entries.length, harData.loadEntries]);
@@ -222,6 +242,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ curl: activeCurl }),
+        signal: AbortSignal.timeout(30_000),
       });
 
       if (!res.ok) {
@@ -232,7 +253,11 @@ export default function Home() {
       const data: ProxyResponse = await res.json();
       setProxyResponse(data);
     } catch (e) {
-      setError((e as Error).message);
+      if ((e as Error).name === 'AbortError' || (e as Error).name === 'TimeoutError') {
+        setError('Request execution timed out after 30s');
+      } else {
+        setError((e as Error).message);
+      }
     } finally {
       setIsExecuting(false);
     }
@@ -265,7 +290,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-4 h-12 flex items-center justify-between">
           <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
             <Braces className="h-4 w-4" />
-            <span className="font-semibold text-sm">HAR Reverse Engineer</span>
+            <span className="font-semibold text-sm">HARvest</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -408,7 +433,19 @@ export default function Home() {
           )}
 
           {/* Loading: pipeline stepper */}
-          {isAnalyzing && <PipelineStepper currentStep={pipelineStep} />}
+          {isAnalyzing && (
+            <div className="space-y-2">
+              <PipelineStepper currentStep={pipelineStep} />
+              <div className="text-center">
+                <button
+                  onClick={handleCancel}
+                  className="text-sm text-zinc-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400 underline transition-colors"
+                >
+                  Cancel analysis
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Results */}
           {result && (
@@ -484,7 +521,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-zinc-200 dark:border-zinc-800 py-4">
         <div className="max-w-4xl mx-auto px-4 flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-500">
-          <span>Built with Next.js, NestJS, and GPT-4o-mini</span>
+          <span>HARvest &mdash; built with Next.js, NestJS, and multi-provider LLM</span>
           <a
             href="https://github.com"
             target="_blank"

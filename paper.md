@@ -1,4 +1,4 @@
-# HARvest: LLM-Assisted API Discovery from Browser Network Traces
+# HARvest API Reverse Engineer: LLM-Assisted API Discovery from Browser Network Traces
 
 **Luis [Last Name]**
 [University/Affiliation]

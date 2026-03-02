@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * HARvest CLI — Identify API requests from HAR files using LLMs.
+ * HARvest API Reverse Engineer — CLI
+ *
+ * Identify API requests from HAR files using LLMs.
  *
  * Usage:
  *   npx harvest-api <har-file> --description "the login API" [--provider local|groq|openai] [--model ...] [--json] [--top N]
@@ -50,11 +52,24 @@ function loadEnv(): void {
 
 loadEnv();
 
+// Global abort controller for clean shutdown
+const cliAbort = new AbortController();
+
+function handleSignal(signal: string): void {
+  process.stderr.write(`\nReceived ${signal}, aborting...\n`);
+  cliAbort.abort();
+  // Give pending operations a moment to clean up
+  setTimeout(() => process.exit(1), 500);
+}
+
+process.on('SIGINT', () => handleSignal('SIGINT'));
+process.on('SIGTERM', () => handleSignal('SIGTERM'));
+
 const program = new Command();
 
 program
   .name('harvest-api')
-  .description('Identify API requests from HAR files using LLMs')
+  .description('HARvest — Reverse engineer any API from browser network traces')
   .version('1.0.0')
   .argument('<har-file>', 'Path to the HAR file to analyze')
   .requiredOption('-d, --description <text>', 'Description of the API to find')
@@ -121,9 +136,20 @@ program
 
       const { summary: llmSummary, uniqueCount } = harParser.generateLlmSummary(filtered, allEntries.length);
 
-      // LLM match
+      // LLM match with 60s timeout
       process.stderr.write(`Analyzing ${filtered.length} requests (${uniqueCount} unique) with ${opts.provider}...\n`);
-      const llmResult = await llm.identifyApiRequest(llmSummary, opts.description, filtered.length);
+      const llmTimeout = setTimeout(() => {
+        if (!cliAbort.signal.aborted) {
+          process.stderr.write('LLM call timed out after 60s\n');
+          cliAbort.abort();
+        }
+      }, 60_000);
+      let llmResult;
+      try {
+        llmResult = await llm.identifyApiRequest(llmSummary, opts.description, filtered.length, cliAbort.signal);
+      } finally {
+        clearTimeout(llmTimeout);
+      }
 
       const matchedEntry = filtered[llmResult.matchIndex];
       const curl = harToCurl.generateCurl(matchedEntry);

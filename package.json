@@ -1,5 +1,5 @@
 {
-  "name": "har-reverse-engineer",
+  "name": "harvest-api",
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",

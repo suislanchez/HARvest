@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import { withRetry } from '../../common/utils/llm-retry';
 
 export interface LlmMatchResult {
   matchIndex: number;
@@ -33,6 +34,7 @@ export class OpenaiService {
     summary: string,
     userDescription: string,
     totalEntries: number,
+    signal?: AbortSignal,
   ): Promise<LlmMatchResult> {
     const systemPrompt = `You are an API reverse-engineering expert. You analyze HTTP request summaries from HAR files and identify which request best matches a user's description.
 
@@ -64,16 +66,24 @@ Identify the best matching request(s). Return JSON only.`;
       `Sending grouped summary (${totalEntries} entries) to ${this.model} for matching`,
     );
 
-    const response = await this.client.chat.completions.create({
-      model: this.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-      max_tokens: 500,
-      temperature: 0.1,
-    });
+    const response = await withRetry(
+      (retrySignal) =>
+        this.client.chat.completions.create(
+          {
+            model: this.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            response_format: { type: 'json_object' },
+            max_tokens: 500,
+            temperature: 0.1,
+          },
+          { signal: signal ?? retrySignal },
+        ),
+      this.logger,
+      { timeoutMs: 30_000 },
+    );
 
     const content = response.choices[0]?.message?.content;
     if (!content) {

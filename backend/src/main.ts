@@ -16,8 +16,9 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.useGlobalFilters(new AllExceptionsFilter());
   app.setGlobalPrefix('api');
+  app.enableShutdownHooks();
   
   await app.listen(3001);
-  console.log('Backend running on http://localhost:3001');
+  console.log('HARvest backend running on http://localhost:3001');
 }
 bootstrap();

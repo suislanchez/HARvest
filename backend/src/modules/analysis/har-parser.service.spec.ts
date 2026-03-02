@@ -859,4 +859,37 @@ describe('HarParserService', () => {
       expect(summary.bodyPreview!.length).toBe(103); // 100 + '...'
     });
   });
+
+  describe('generateLlmSummary — token overflow protection', () => {
+    it('should truncate summaries exceeding MAX_SUMMARY_CHARS', () => {
+      // Generate a very long URL to create a huge summary
+      const entries: Entry[] = [];
+      for (let i = 0; i < 2000; i++) {
+        entries.push(
+          makeEntry({
+            url: `https://api.example.com/very-long-path-segment-${i}-${'x'.repeat(200)}`,
+            method: 'GET',
+            status: 200,
+            responseMimeType: 'application/json',
+            responseText: `{"data": "${'y'.repeat(200)}"}`,
+          }),
+        );
+      }
+
+      const { summary } = service.generateLlmSummary(entries, entries.length);
+      // Summary should be truncated and contain the truncation notice
+      expect(summary.length).toBeLessThanOrEqual(100_100); // some slack for the notice
+      expect(summary).toContain('[TRUNCATED');
+    });
+
+    it('should not truncate short summaries', () => {
+      const entries = [
+        makeEntry({ url: 'https://api.example.com/a', status: 200, responseMimeType: 'application/json' }),
+        makeEntry({ url: 'https://api.example.com/b', status: 200, responseMimeType: 'application/json' }),
+      ];
+
+      const { summary } = service.generateLlmSummary(entries, 2);
+      expect(summary).not.toContain('[TRUNCATED');
+    });
+  });
 });

@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HARvest Frontend
 
-## Getting Started
+Next.js 16 web application for HARvest API Reverse Engineer.
 
-First, run the development server:
+## Quick Start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Requires the backend running at `http://localhost:3001`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- HAR file upload (drag & drop or file picker)
+- Auto-capture from URL
+- HAR inspector table (sortable, filterable)
+- AI-powered API matching with confidence scores
+- Editable curl output with multi-language export
+- In-browser curl execution via SSRF-protected proxy
+- Response diff viewer (original HAR vs. live response)
+- Analysis cancellation with timeout protection (90s analysis, 30s execution)
+- Collection history sidebar
+- Dark/light theme
+- Keyboard shortcuts (?, H, I, Cmd+Enter)
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- Next.js 16, React 19, TypeScript 5
+- Tailwind CSS 4, shadcn/ui, Radix UI
+- TanStack React Table 8
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+├── app/
+│   ├── page.tsx          Main page (upload → inspect → analyze → results)
+│   ├── layout.tsx        Root layout with theme provider
+│   ├── globals.css       Global styles
+│   └── api/proxy/        SSRF-protected curl execution proxy
+├── components/           UI components (file-upload, har-inspector, curl-output, etc.)
+├── hooks/                Custom hooks (use-har-data)
+└── lib/                  Utilities (har-utils, collection storage)
+```

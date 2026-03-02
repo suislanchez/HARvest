@@ -11,6 +11,7 @@ export interface LlmProvider {
     summary: string,
     userDescription: string,
     totalEntries: number,
+    signal?: AbortSignal,
   ): Promise<LlmMatchResult>;
 }
 

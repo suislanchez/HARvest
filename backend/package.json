@@ -1,7 +1,7 @@
 {
   "name": "harvest-api",
   "version": "1.0.0",
-  "description": "LLM-assisted API discovery from HAR files",
+  "description": "HARvest API Reverse Engineer — LLM-assisted API discovery from browser network traces",
   "author": "",
   "private": false,
   "license": "MIT",
