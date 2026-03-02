@@ -2,11 +2,16 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import type { Entry } from 'har-format';
 import { HarParserService, HarSummary } from './har-parser.service';
 import { HarToCurlService } from './har-to-curl.service';
+import { WsCommandService } from './ws-command.service';
 import { LlmMatchResult } from '../openai/openai.service';
-import { LLM_PROVIDER, LlmProvider } from '../llm/llm-provider.interface';
+import { LLM_PROVIDER } from '../llm/llm-provider.interface';
+import type { LlmProvider } from '../llm/llm-provider.interface';
 
 export interface AnalysisResult {
   curl: string;
+  type: 'http' | 'websocket' | 'sse';
+  provider?: string;
+  model?: string;
   matchedRequest: {
     method: string;
     url: string;
@@ -21,6 +26,7 @@ export interface AnalysisResult {
     reason: string;
     method: string;
     url: string;
+    curl: string;
   }>;
   stats: {
     totalRequests: number;
@@ -51,6 +57,7 @@ export class AnalysisService {
   constructor(
     private readonly harParser: HarParserService,
     private readonly harToCurl: HarToCurlService,
+    private readonly wsCommand: WsCommandService,
     @Inject(LLM_PROVIDER) private readonly llm: LlmProvider,
   ) {}
 
@@ -94,21 +101,46 @@ export class AnalysisService {
     );
     const llmEnd = performance.now();
 
-    // Step 5: Get the matched entry and generate curl
+    // Step 5: Get the matched entry and generate curl/wscat
     const matchedEntry = filtered[llmResult.matchIndex];
-    const curl = this.harToCurl.generateCurl(matchedEntry);
+
+    // Detect entry type
+    const isWs = this.wsCommand.isWebSocketEntry(matchedEntry);
+    const isSse = !isWs && this.wsCommand.isSSEEntry(matchedEntry);
+    const entryType: 'http' | 'websocket' | 'sse' = isWs ? 'websocket' : isSse ? 'sse' : 'http';
+
+    let curl: string;
+    if (isWs) {
+      const cmds = this.wsCommand.generateWsCommands(matchedEntry);
+      curl = cmds.wscat;
+    } else if (isSse) {
+      curl = this.wsCommand.generateSseCurl(matchedEntry);
+    } else {
+      curl = this.harToCurl.generateCurl(matchedEntry);
+    }
 
     const totalEnd = performance.now();
 
-    // Build top matches with request info
+    // Build top matches with request info and pre-generated curl
     const topMatchesWithInfo = llmResult.topMatches.map((m) => {
       const entry = filtered[m.index];
+      let matchCurl = '';
+      if (entry) {
+        if (this.wsCommand.isWebSocketEntry(entry)) {
+          matchCurl = this.wsCommand.generateWsCommands(entry).wscat;
+        } else if (this.wsCommand.isSSEEntry(entry)) {
+          matchCurl = this.wsCommand.generateSseCurl(entry);
+        } else {
+          matchCurl = this.harToCurl.generateCurl(entry);
+        }
+      }
       return {
         index: m.index,
         confidence: m.confidence,
         reason: m.reason,
         method: entry?.request.method || 'UNKNOWN',
         url: entry?.request.url || 'UNKNOWN',
+        curl: matchCurl,
       };
     });
 
@@ -128,6 +160,9 @@ export class AnalysisService {
 
     return {
       curl,
+      type: entryType,
+      provider: this.llm.providerName,
+      model: this.llm.modelName,
       matchedRequest: {
         method: matchedEntry.request.method,
         url: matchedEntry.request.url,

@@ -1,6 +1,7 @@
 import { AnalysisService } from './analysis.service';
 import { HarParserService } from './har-parser.service';
 import { HarToCurlService } from './har-to-curl.service';
+import { WsCommandService } from './ws-command.service';
 import { LlmProvider } from '../llm/llm-provider.interface';
 import type { Har, Entry } from 'har-format';
 
@@ -8,6 +9,7 @@ describe('AnalysisService', () => {
   let service: AnalysisService;
   let harParser: HarParserService;
   let harToCurl: HarToCurlService;
+  let wsCommand: WsCommandService;
   let llm: jest.Mocked<LlmProvider>;
 
   function makeEntry(url: string, method = 'GET'): Entry {
@@ -54,10 +56,11 @@ describe('AnalysisService', () => {
   beforeEach(() => {
     harParser = new HarParserService();
     harToCurl = new HarToCurlService();
+    wsCommand = new WsCommandService();
     llm = {
       identifyApiRequest: jest.fn(),
     } as any;
-    service = new AnalysisService(harParser, harToCurl, llm);
+    service = new AnalysisService(harParser, harToCurl, wsCommand, llm);
   });
 
   it('should run the full pipeline and return curl + metadata', async () => {

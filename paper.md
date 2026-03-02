@@ -7,7 +7,7 @@
 
 ## Abstract
 
-We present HARvest, a system that automatically identifies and extracts API endpoints from HTTP Archive (HAR) files using large language models. Given a HAR file captured from a web browser's DevTools and a natural language description of the desired API, HARvest applies an 8-layer filtering pipeline to reduce noise, generates token-efficient summaries, and uses an LLM to semantically match the target request. We evaluate the system on HARBench, a benchmark of 30 annotated test cases spanning 10 application categories, and conduct a systematic ablation study across all filter layers. Our results show that both GPT-4o-mini and Llama-3.3-70b achieve 100% accuracy on the benchmark (n=15 shared cases), with Groq-hosted Llama providing 4x lower latency (524ms vs 2,134ms). A keyword-matching baseline achieves only 86.7% accuracy, demonstrating the necessity of semantic understanding for API discovery. The full 63-case evaluation suite confirms 95%+ accuracy across easy, medium, hard, and extreme difficulty levels. We release the system, benchmark, and ablation framework as open-source tools.
+We present HARvest, a system that automatically identifies and extracts API endpoints from HTTP Archive (HAR) files using large language models. Given a HAR file captured from a web browser's DevTools and a natural language description of the desired API, HARvest applies an 8-layer filtering pipeline to reduce noise, generates token-efficient summaries, and uses an LLM to semantically match the target request. We evaluate the system on HARBench, a benchmark of 30 annotated test cases spanning 10 application categories, and conduct a systematic ablation study across all filter layers. Our results show that both GPT-4o-mini and Llama-3.3-70b achieve 100% accuracy on the benchmark (n=15 shared cases), with Groq-hosted Llama providing 4x lower latency (524ms vs 2,134ms). Notably, qwen2.5:7b running locally via Ollama achieves 98.4% accuracy (62/63 cases) on the full evaluation suite with zero cost and complete data privacy. A keyword-matching baseline achieves only 86.7% accuracy, demonstrating the necessity of semantic understanding for API discovery. The full 63-case evaluation suite confirms 95%+ accuracy across easy, medium, hard, and extreme difficulty levels. We release the system, benchmark, and ablation framework as open-source tools.
 
 ## 1. Introduction
 
@@ -223,7 +223,7 @@ Each filter layer is disabled independently while keeping all others active:
 - Removing all filters increases token consumption by ~180% and can cause accuracy degradation as the LLM must process irrelevant JavaScript bundles and tracking pixels alongside API requests.
 - Deduplication provides modest but consistent token savings (5-15% depending on the application's API call patterns).
 
-### 5.4 Cost Analysis
+### 5.5 Cost Analysis
 
 At scale, the cost per API identification query is negligible:
 
@@ -259,7 +259,17 @@ The 13.3% accuracy gap between the keyword baseline and LLM-based approaches hig
 2. **Disambiguation**: Distinguishing "/data/2.5/weather" from "/data/2.5/forecast" requires understanding "current" vs "5-day".
 3. **GraphQL**: All queries share the same URL; only the `operationName` in the body differentiates them, requiring understanding of the user's intent.
 
-### 6.4 Limitations
+### 6.4 Threats to Validity
+
+Several factors may affect the generalizability of our results:
+
+- **Fixture representativeness**: Our evaluation relies on 11 synthetic HAR files and 16 real-world captures from public APIs. Enterprise applications with complex authentication flows, microservice architectures, or heavy client-side rendering may produce substantially different HAR structures that our pipeline has not been tested against.
+- **LLM non-determinism**: Despite using temperature=0.1, LLM outputs are inherently non-deterministic. We report single-run results; repeated runs may show minor variance in accuracy, particularly on boundary cases where confidence scores hover near decision thresholds.
+- **English-only descriptions**: All evaluation descriptions are in English. The system's performance with non-English natural language queries is untested and may degrade, particularly for local models with limited multilingual training data.
+- **Limited evaluation scale**: While 63 cases cover a range of difficulties, this is a relatively small benchmark. A larger, community-contributed benchmark would strengthen confidence in the reported accuracy figures.
+- **HARBench vs full suite terminology**: HARBench refers to the 30-case annotated benchmark (Section 4.1), while the full evaluation suite comprises 63 cases (Section 4.2). Cross-model comparisons use a 15-case shared subset. These distinctions are important when interpreting accuracy figures across different sections.
+
+### 6.5 Limitations
 
 - **Synthetic fixtures**: While our synthetic HAR files are realistic, they may not capture the full diversity of real-world web applications. The 8 real-world captures partially address this.
 - **Single-turn matching**: The system performs one-shot identification. An interactive refinement loop (e.g., "that's not it, try the next one") would improve user experience.

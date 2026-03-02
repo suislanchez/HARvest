@@ -17,6 +17,9 @@ export class OpenaiService {
   private readonly logger = new Logger(OpenaiService.name);
   private readonly model: string;
 
+  get providerName(): string { return 'openai'; }
+  get modelName(): string { return this.model; }
+
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!apiKey) {

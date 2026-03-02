@@ -9,6 +9,9 @@ export class GroqService {
   private readonly logger = new Logger(GroqService.name);
   private readonly model: string;
 
+  get providerName(): string { return 'groq'; }
+  get modelName(): string { return this.model; }
+
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
     if (!apiKey) {

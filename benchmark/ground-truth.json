@@ -278,6 +278,51 @@
       "expectedMethod": "GET",
       "difficulty": "easy",
       "category": "search"
+    },
+    {
+      "id": "captured-reddit",
+      "harFile": "test-fixtures/captured/reddit-json.har",
+      "description": "Reddit programming subreddit posts",
+      "expectedUrlPattern": "reddit.com",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "public-api"
+    },
+    {
+      "id": "captured-stackoverflow",
+      "harFile": "test-fixtures/captured/stackoverflow-api.har",
+      "description": "Stack Overflow questions API",
+      "expectedUrlPattern": "stackexchange.com",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "public-api"
+    },
+    {
+      "id": "captured-nominatim",
+      "harFile": "test-fixtures/captured/nominatim-geocode.har",
+      "description": "geocoding or address search API",
+      "expectedUrlPattern": "nominatim.openstreetmap.org",
+      "expectedMethod": "GET",
+      "difficulty": "medium",
+      "category": "search"
+    },
+    {
+      "id": "captured-weathergov",
+      "harFile": "test-fixtures/captured/weathergov-forecast.har",
+      "description": "weather forecast data from weather.gov",
+      "expectedUrlPattern": "api.weather.gov",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "weather"
+    },
+    {
+      "id": "captured-exchangerate",
+      "harFile": "test-fixtures/captured/exchangerate-api.har",
+      "description": "currency exchange rate data",
+      "expectedUrlPattern": "er-api.com",
+      "expectedMethod": "GET",
+      "difficulty": "easy",
+      "category": "public-api"
     }
   ]
 }

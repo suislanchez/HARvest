@@ -5,6 +5,8 @@ import { LlmMatchResult } from '../openai/openai.service';
  * Any service that implements this can be injected into AnalysisService.
  */
 export interface LlmProvider {
+  readonly providerName?: string;
+  readonly modelName?: string;
   identifyApiRequest(
     summary: string,
     userDescription: string,

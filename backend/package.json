@@ -1,10 +1,13 @@
 {
-  "name": "backend",
-  "version": "0.0.1",
-  "description": "",
+  "name": "harvest-api",
+  "version": "1.0.0",
+  "description": "LLM-assisted API discovery from HAR files",
   "author": "",
-  "private": true,
-  "license": "UNLICENSED",
+  "private": false,
+  "license": "MIT",
+  "bin": {
+    "harvest-api": "./dist/cli.js"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -28,9 +31,10 @@
     "@nestjs/throttler": "^6.5.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
+    "commander": "^14.0.3",
     "openai": "^6.24.0",
-    "reflect-metadata": "^0.2.2",
     "playwright": "^1.52.0",
+    "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {

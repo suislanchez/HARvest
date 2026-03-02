@@ -19,6 +19,9 @@ export class LocalLlmService {
   private readonly logger = new Logger(LocalLlmService.name);
   readonly model: string;
 
+  get providerName(): string { return 'local'; }
+  get modelName(): string { return this.model; }
+
   constructor(private configService: ConfigService) {
     const baseURL = this.configService.get<string>('LOCAL_LLM_BASE_URL') || 'http://localhost:11434/v1';
     this.model = this.configService.get<string>('LOCAL_LLM_MODEL') || 'llama3.2:3b';

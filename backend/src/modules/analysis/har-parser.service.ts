@@ -343,14 +343,31 @@ export class HarParserService {
         const dupCount = seen.get(dedupKey)!.count;
         const dupLabel = dupCount > 1 ? ` (×${dupCount})` : '';
 
+        // Detect WebSocket or SSE
+        const isWs = entry.request.url.startsWith('wss://') || entry.request.url.startsWith('ws://') || res.status === 101;
+        const isSse = (res.content?.mimeType || '').includes('text/event-stream') ||
+          entry.request.headers?.some((h) => h.name.toLowerCase() === 'accept' && h.value.includes('text/event-stream'));
+        const typeTag = isWs ? ' [WebSocket]' : isSse ? ' [SSE]' : '';
+
         // Build the line
-        let line = `  ${globalIndex}. ${req.method} ${urlPath} → ${res.status} ${shortMime}${sizeStr}${dupLabel}`;
+        let line = `  ${globalIndex}. ${req.method} ${urlPath} → ${res.status} ${shortMime}${sizeStr}${dupLabel}${typeTag}`;
 
         // Request body preview (for POST/PUT/PATCH)
         if (req.postData?.text) {
           const bodyPreview = req.postData.text.substring(0, 120);
           const ellipsis = req.postData.text.length > 120 ? '...' : '';
           line += ` body: ${bodyPreview}${ellipsis}`;
+        }
+        // WebSocket message flow preview
+        else if (isWs && (entry as any)._webSocketMessages?.length > 0) {
+          const msgs = (entry as any)._webSocketMessages as Array<{ type: string; data: string }>;
+          const preview = msgs.slice(0, 3).map((m) => {
+            const dir = m.type === 'send' ? '→' : '←';
+            const data = (m.data || '').substring(0, 60);
+            return `${dir} ${data}`;
+          }).join(' | ');
+          line += ` messages: ${preview}`;
+          if (msgs.length > 3) line += ` (+${msgs.length - 3} more)`;
         }
         // Response body preview (when no request body and response has text)
         else if (res.content?.text) {

@@ -4,6 +4,7 @@ import { AnalysisController } from './analysis.controller';
 import { AnalysisService } from './analysis.service';
 import { HarParserService } from './har-parser.service';
 import { HarToCurlService } from './har-to-curl.service';
+import { WsCommandService } from './ws-command.service';
 import { LLM_PROVIDER } from '../llm/llm-provider.interface';
 import { GroqService } from '../groq/groq.service';
 import { OpenaiService } from '../openai/openai.service';
@@ -22,6 +23,7 @@ import { LocalLlmService } from '../local-llm/local-llm.service';
     AnalysisService,
     HarParserService,
     HarToCurlService,
+    WsCommandService,
     {
       provide: LLM_PROVIDER,
       useFactory: (configService: ConfigService) => {

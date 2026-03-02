@@ -26,6 +26,7 @@ const filterXhr = document.getElementById('filterXhr');
 const filterAssets = document.getElementById('filterAssets');
 const filterTracking = document.getElementById('filterTracking');
 const dropZone = document.getElementById('dropZone');
+const providerBadge = document.getElementById('providerBadge');
 const diffBtn = document.getElementById('diffBtn');
 const diffResult = document.getElementById('diffResult');
 const requestPreview = document.getElementById('requestPreview');
@@ -532,6 +533,15 @@ function displayResult(data) {
   else if (pct >= 50) confidence.classList.add('confidence-medium');
   else confidence.classList.add('confidence-low');
 
+  // Provider badge
+  if (data.provider) {
+    const label = data.model ? `${data.provider}/${data.model}` : data.provider;
+    providerBadge.textContent = label;
+    providerBadge.classList.remove('hidden');
+  } else {
+    providerBadge.classList.add('hidden');
+  }
+
   if (data.matchedRequest) {
     const label = `${data.matchedRequest.method} ${data.matchedRequest.url}`;
     matchedRequest.textContent = label;
@@ -551,6 +561,7 @@ function displayResult(data) {
     otherMatchesList.innerHTML = '';
     for (const match of data.topMatches) {
       const li = document.createElement('li');
+      li.style.cursor = match.curl ? 'pointer' : 'default';
       const confSpan = document.createElement('span');
       confSpan.className = 'match-confidence';
       const matchPct = Math.max(0, Math.min(100, Math.round(match.confidence * 100)));
@@ -565,6 +576,25 @@ function displayResult(data) {
       if (match.reason) {
         const reasonText = document.createTextNode(` — ${match.reason}`);
         li.appendChild(reasonText);
+      }
+      // Clickable: switch to this match's curl
+      if (match.curl) {
+        const useBtn = document.createElement('button');
+        useBtn.className = 'btn btn-small';
+        useBtn.textContent = 'Use';
+        useBtn.style.marginLeft = '8px';
+        useBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          curlOutput.textContent = match.curl;
+          confidence.textContent = `${matchPct}%`;
+          reason.textContent = match.reason || '';
+          if (match.method && match.url) {
+            matchedRequest.textContent = `${match.method} ${match.url}`;
+            matchedRequest.title = `${match.method} ${match.url}`;
+          }
+          currentResultData = { ...currentResultData, curl: match.curl, confidence: match.confidence, reason: match.reason };
+        });
+        li.appendChild(useBtn);
       }
       otherMatchesList.appendChild(li);
     }

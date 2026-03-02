@@ -34,10 +34,13 @@ interface AnalysisStats {
 
 interface AnalysisResult {
   curl: string;
+  type?: 'http' | 'websocket' | 'sse';
+  provider?: string;
+  model?: string;
   matchedRequest: { method: string; url: string; status: number; contentType: string };
   confidence: number;
   reason: string;
-  topMatches: Array<{ index: number; confidence: number; reason: string; method: string; url: string }>;
+  topMatches: Array<{ index: number; confidence: number; reason: string; method: string; url: string; curl?: string }>;
   stats: AnalysisStats;
   allRequests: Array<{ method: string; url: string; status: number; contentType: string; time: number }>;
 }
@@ -100,8 +103,14 @@ export default function Home() {
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  // The curl to display/execute: edited version or original from result
-  const activeCurl = editedCurl ?? result?.curl ?? '';
+  const [selectedMatchIndex, setSelectedMatchIndex] = useState(0);
+
+  // Derive active match from selectedMatchIndex
+  const activeMatch = result?.topMatches?.[selectedMatchIndex];
+  // The curl to display/execute: edited version, selected match, or original from result
+  const activeCurl = editedCurl ?? activeMatch?.curl ?? result?.curl ?? '';
+  const activeConfidence = activeMatch?.confidence ?? result?.confidence ?? 0;
+  const activeReason = activeMatch?.reason ?? result?.reason ?? '';
 
   // Original response from HAR for diff view
   const originalResponse = useMemo(() => {
@@ -109,9 +118,10 @@ export default function Home() {
     return findOriginalResponse(harData.har, result.matchedRequest);
   }, [harData.har, result?.matchedRequest]);
 
-  // Reset editedCurl when result changes
+  // Reset editedCurl and selectedMatch when result changes
   useEffect(() => {
     setEditedCurl(null);
+    setSelectedMatchIndex(0);
   }, [result]);
 
   // Simulated pipeline step progression
@@ -406,13 +416,24 @@ export default function Home() {
               <PipelineStats stats={result.stats} />
               <CurlOutput
                 curl={activeCurl}
-                confidence={result.confidence}
-                reason={result.reason}
+                confidence={activeConfidence}
+                reason={activeReason}
+                type={result.type}
+                provider={result.provider}
+                model={result.model}
                 matchedRequest={result.matchedRequest}
                 topMatches={result.topMatches}
                 onExecute={handleExecute}
                 isExecuting={isExecuting}
                 onCurlChange={setEditedCurl}
+                onSelectMatch={(match) => {
+                  const idx = result.topMatches.findIndex((m) => m.index === match.index);
+                  if (idx >= 0) {
+                    setSelectedMatchIndex(idx);
+                    setEditedCurl(null);
+                    setProxyResponse(null);
+                  }
+                }}
               />
             </div>
           )}
