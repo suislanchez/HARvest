@@ -711,6 +711,9 @@ function displayResult(data) {
   // Request preview
   showRequestPreview(data);
 
+  executeBtn.disabled = false;
+  executeResult.classList.add('hidden');
+
   result.classList.remove('hidden');
 }
 
@@ -963,6 +966,101 @@ async function copyToClipboard(text, feedbackEl) {
     setTimeout(() => { feedbackEl.textContent = orig; }, 1500);
   }
 }
+
+// =====================
+// CURL EXECUTOR
+// =====================
+const executeBtn = document.getElementById('executeBtn');
+const executeSpinner = document.getElementById('executeSpinner');
+const executeStatus = document.getElementById('executeStatus');
+const executeResult = document.getElementById('executeResult');
+const executeStatusBadge = document.getElementById('executeStatusBadge');
+const executeDuration = document.getElementById('executeDuration');
+const executeBody = document.getElementById('executeBody');
+const executeHeaders = document.getElementById('executeHeaders');
+
+function getExecuteUrl() {
+  return getBaseUrl() + '/execute';
+}
+
+executeBtn.addEventListener('click', async () => {
+  if (!currentResultData || !currentResultData.curl) return;
+
+  executeBtn.disabled = true;
+  executeSpinner.classList.remove('hidden');
+  executeStatus.textContent = 'Executing...';
+  executeStatus.classList.remove('hidden');
+  executeResult.classList.add('hidden');
+
+  try {
+    const res = await fetchWithRetry(getExecuteUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ curl: currentResultData.curl }),
+      signal: AbortSignal.timeout(35_000),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new HttpError(res.status, body?.message || `Execute failed: ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    // Status badge
+    const isOk = data.status >= 200 && data.status < 400;
+    executeStatusBadge.textContent = `${data.status} ${data.statusText}`;
+    executeStatusBadge.className = 'execute-status-badge ' + (isOk ? 'status-ok' : 'status-error');
+
+    // Duration
+    executeDuration.textContent = `${data.duration}ms`;
+
+    // Body — try to pretty-print JSON
+    let bodyDisplay = data.body || '(empty)';
+    try {
+      const parsed = JSON.parse(data.body);
+      bodyDisplay = JSON.stringify(parsed, null, 2);
+    } catch { /* not JSON */ }
+    executeBody.textContent = bodyDisplay;
+
+    // Headers
+    let headersDisplay = '';
+    if (data.headers) {
+      for (const [k, v] of Object.entries(data.headers)) {
+        headersDisplay += `${k}: ${v}\n`;
+      }
+    }
+    executeHeaders.textContent = headersDisplay || '(none)';
+
+    // Show body tab by default
+    document.querySelector('.execute-body').classList.remove('hidden');
+    document.querySelector('.execute-headers').classList.add('hidden');
+    document.querySelectorAll('.execute-tabs [data-exec-tab]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.execTab === 'body');
+    });
+
+    executeResult.classList.remove('hidden');
+  } catch (err) {
+    showError(formatError(err));
+  } finally {
+    executeBtn.disabled = false;
+    executeSpinner.classList.add('hidden');
+    executeStatus.classList.add('hidden');
+  }
+});
+
+// Tab switching for execute result
+document.querySelector('.execute-tabs')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-exec-tab]');
+  if (!btn) return;
+
+  const tab = btn.dataset.execTab;
+  document.querySelectorAll('.execute-tabs [data-exec-tab]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.execTab === tab);
+  });
+  document.querySelector('.execute-body').classList.toggle('hidden', tab !== 'body');
+  document.querySelector('.execute-headers').classList.toggle('hidden', tab !== 'headers');
+});
 
 // =====================
 // ANALYSIS HISTORY

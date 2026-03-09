@@ -96,6 +96,23 @@
           <button class="btn btn-small" data-format="python">Python</button>
         </div>
       </div>
+      <div class="execute-row">
+        <button id="executeBtn" class="btn btn-primary btn-small" disabled>Execute</button>
+        <span id="executeSpinner" class="spinner hidden" aria-label="Executing"></span>
+        <span id="executeStatus" class="status-text hidden"></span>
+      </div>
+      <div id="executeResult" class="execute-result hidden">
+        <div class="execute-result-header">
+          <span id="executeStatusBadge" class="execute-status-badge"></span>
+          <span id="executeDuration" class="execute-duration"></span>
+        </div>
+        <div class="execute-tabs">
+          <button class="btn btn-small active" data-exec-tab="body">Body</button>
+          <button class="btn btn-small" data-exec-tab="headers">Headers</button>
+        </div>
+        <pre class="execute-body"><code id="executeBody"></code></pre>
+        <pre class="execute-headers hidden"><code id="executeHeaders"></code></pre>
+      </div>
       <details id="requestPreview" class="request-preview hidden">
         <summary>Request details</summary>
         <div id="requestPreviewContent"></div>

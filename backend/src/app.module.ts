@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AnalysisModule } from './modules/analysis/analysis.module';
 import { CaptureModule } from './modules/capture/capture.module';
 import { HealthModule } from './modules/health/health.module';
+import { ExecuteModule } from './modules/execute/execute.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { HealthModule } from './modules/health/health.module';
     AnalysisModule,
     CaptureModule,
     HealthModule,
+    ExecuteModule,
   ],
   providers: [
     {

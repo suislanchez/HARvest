@@ -684,6 +684,82 @@ textarea:focus {
   flex-shrink: 0;
 }
 
+/* --- Execute result --- */
+.execute-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.execute-result {
+  margin-top: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.execute-result-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.execute-status-badge {
+  font-weight: 600;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.execute-status-badge.status-ok {
+  background: var(--confidence-high-bg);
+  color: var(--confidence-high-color);
+}
+
+.execute-status-badge.status-error {
+  background: var(--confidence-low-bg);
+  color: var(--confidence-low-color);
+}
+
+.execute-duration {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.execute-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+}
+
+.execute-tabs .btn-small.active {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-color);
+  border-color: var(--btn-primary-bg);
+}
+
+.execute-body,
+.execute-headers {
+  margin: 0;
+  padding: 12px;
+  background: var(--bg-secondary);
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.execute-body code,
+.execute-headers code {
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
 /* --- Shortcut hint --- */
 .shortcut-hint {
   position: fixed;
