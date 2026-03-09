@@ -654,7 +654,15 @@ function displayResult(data) {
   }
 
   reason.textContent = data.reason || '';
-  curlOutput.textContent = data.curl || '';
+
+  // Show highlighted curl and reset edit mode
+  secretsRevealed = false;
+  isEditing = false;
+  curlEditor.classList.add('hidden');
+  curlHighlighted.classList.remove('hidden');
+  editToggleBtn.textContent = 'Edit';
+  secretToggleBtn.textContent = 'Reveal';
+  renderHighlightedCurl(data.curl || '');
 
   // Reset export buttons
   const exportBtns = document.querySelectorAll('.export-group .btn-small');
@@ -690,7 +698,7 @@ function displayResult(data) {
         useBtn.style.marginLeft = '8px';
         useBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          curlOutput.textContent = match.curl;
+          renderHighlightedCurl(match.curl);
           confidence.textContent = `${matchPct}%`;
           reason.textContent = match.reason || '';
           if (match.method && match.url) {
@@ -934,7 +942,11 @@ document.querySelector('.export-group').addEventListener('click', (e) => {
     default: output = curlStr;
   }
 
-  curlOutput.textContent = output;
+  if (format === 'curl') {
+    renderHighlightedCurl(output);
+  } else {
+    curlOutput.textContent = output;
+  }
 
   // Copy to clipboard
   copyToClipboard(output, btn);
@@ -968,6 +980,178 @@ async function copyToClipboard(text, feedbackEl) {
 }
 
 // =====================
+// CURL SYNTAX HIGHLIGHTING + EDIT + SECRETS
+// =====================
+const curlHighlighted = document.getElementById('curlHighlighted');
+const curlEditor = document.getElementById('curlEditor');
+const editToggleBtn = document.getElementById('editToggle');
+const secretToggleBtn = document.getElementById('secretToggle');
+
+let isEditing = false;
+let secretsRevealed = false;
+
+// Secret patterns — values we want to mask
+const SECRET_PATTERNS = [
+  /Bearer\s+[A-Za-z0-9\-_.~+/]+=*/g,
+  /token:\s*[A-Za-z0-9\-_.~+/]+=*/gi,
+];
+
+// Detect if a header value looks like a secret
+function isSecretHeader(name) {
+  const lower = name.toLowerCase();
+  return lower === 'authorization' || lower === 'client-token' || lower === 'x-api-key' || lower === 'api-key';
+}
+
+function highlightCurl(curlStr) {
+  // Escape HTML first
+  let html = escapeHtml(curlStr);
+
+  // Highlight flags: -H, -X, --data-raw, --compressed, -b
+  html = html.replace(/(\s)(--?[a-zA-Z][\w-]*)/g, '$1<span class="curl-flag">$2</span>');
+
+  // Highlight the 'curl' command itself
+  html = html.replace(/^(curl)/, '<span class="curl-flag">$1</span>');
+
+  // Highlight URL (first single-quoted string after curl)
+  html = html.replace(
+    /(<span class="curl-flag">curl<\/span>\s+)'([^']*?)'/,
+    (m, prefix, url) => `${prefix}'<span class="curl-url">${url}</span>'`
+  );
+
+  // Highlight secret header values (authorization, client-token, etc.)
+  // Match: -H 'HeaderName: value'
+  html = html.replace(
+    /(<span class="curl-flag">-H<\/span>\s+')([\w-]+):\s*(.*?)(')/g,
+    (m, prefix, headerName, headerValue, suffix) => {
+      if (isSecretHeader(headerName)) {
+        const masked = '••••••••••••';
+        const escaped = headerValue.replace(/"/g, '&amp;quot;');
+        const secretSpan = `<span class="curl-secret masked" data-secret="${escaped}" title="Click to reveal">${masked}</span>`;
+        return `${prefix}${headerName}: ${secretSpan}${suffix}`;
+      }
+      return m;
+    }
+  );
+
+  // Highlight query keys and values in JSON body (--data-raw '...')
+  html = html.replace(
+    /((?:<span class="curl-flag">--data-raw<\/span>|<span class="curl-flag">-d<\/span>|<span class="curl-flag">--data<\/span>)\s+')(.*?)(')/g,
+    (m, prefix, jsonBody, suffix) => {
+      let highlighted = jsonBody;
+
+      // Match "query":"value" or "query": "value" (with &quot; escaped quotes)
+      highlighted = highlighted.replace(
+        /(&quot;)(query)(&quot;)\s*:\s*(&quot;)(.*?)(&quot;)/g,
+        '$1<span class="curl-query-key">$2</span>$3:$4<span class="curl-query-value">$5</span>$6'
+      );
+
+      // Also highlight "operationName" key
+      highlighted = highlighted.replace(
+        /(&quot;)(operationName)(&quot;)\s*:\s*(&quot;)(.*?)(&quot;)/g,
+        '$1<span class="curl-query-key">$2</span>$3:$4<span class="curl-query-value">$5</span>$6'
+      );
+
+      // Highlight "limit", "offset", "numberOfTopResults" with numeric values
+      highlighted = highlighted.replace(
+        /(&quot;)(limit|offset|numberOfTopResults)(&quot;)\s*:\s*(\d+)/g,
+        '$1<span class="curl-query-key">$2</span>$3:<span class="curl-query-value">$4</span>'
+      );
+
+      // Highlight "q", "search", "term", "keyword" query params too
+      highlighted = highlighted.replace(
+        /(&quot;)(q|search|term|keyword|searchQuery)(&quot;)\s*:\s*(&quot;)(.*?)(&quot;)/g,
+        '$1<span class="curl-query-key">$2</span>$3:$4<span class="curl-query-value">$5</span>$6'
+      );
+
+      return prefix + highlighted + suffix;
+    }
+  );
+
+  // Also highlight query params in URLs: ?query=value&key=value
+  html = html.replace(
+    /(<span class="curl-url">)(.*?)(<\/span>)/g,
+    (m, open, url, close) => {
+      const highlighted = url.replace(
+        /([?&amp;])(query|q|search|term|keyword)=([^&amp;]*)/gi,
+        (qm, sep, key, val) => `${sep}<span class="curl-query-key">${key}</span>=<span class="curl-query-value">${val}</span>`
+      );
+      return open + highlighted + close;
+    }
+  );
+
+  return html;
+}
+
+function renderHighlightedCurl(curlStr) {
+  curlOutput.innerHTML = highlightCurl(curlStr);
+  curlEditor.value = curlStr;
+
+  // Attach click handlers to secret spans
+  curlOutput.querySelectorAll('.curl-secret').forEach((span) => {
+    // Store the real secret text from data attribute
+    const secretText = span.dataset.secret;
+    span.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (span.classList.contains('masked')) {
+        span.textContent = secretText;
+        span.classList.remove('masked');
+        span.classList.add('revealed');
+        span.title = 'Click to hide';
+      } else {
+        span.textContent = '••••••••••••';
+        span.classList.remove('revealed');
+        span.classList.add('masked');
+        span.title = 'Click to reveal';
+      }
+    });
+  });
+}
+
+// Edit toggle
+editToggleBtn.addEventListener('click', () => {
+  isEditing = !isEditing;
+
+  if (isEditing) {
+    // Switch to edit mode — populate textarea with current curl
+    curlEditor.value = currentResultData.curl || '';
+    curlEditor.classList.remove('hidden');
+    curlHighlighted.classList.add('hidden');
+    editToggleBtn.textContent = 'Done';
+    curlEditor.focus();
+  } else {
+    // Switch back to highlighted view — save edits
+    const edited = curlEditor.value.trim();
+    if (edited && currentResultData) {
+      currentResultData.curl = edited;
+    }
+    renderHighlightedCurl(currentResultData.curl || '');
+    curlEditor.classList.add('hidden');
+    curlHighlighted.classList.remove('hidden');
+    editToggleBtn.textContent = 'Edit';
+  }
+});
+
+// Secret toggle (reveal/hide all)
+secretToggleBtn.addEventListener('click', () => {
+  secretsRevealed = !secretsRevealed;
+  secretToggleBtn.textContent = secretsRevealed ? 'Hide' : 'Reveal';
+
+  curlOutput.querySelectorAll('.curl-secret').forEach((span) => {
+    if (secretsRevealed) {
+      span.textContent = span.dataset.secret;
+      span.classList.remove('masked');
+      span.classList.add('revealed');
+      span.title = 'Click to hide';
+    } else {
+      span.textContent = '••••••••••••';
+      span.classList.remove('revealed');
+      span.classList.add('masked');
+      span.title = 'Click to reveal';
+    }
+  });
+});
+
+// =====================
 // CURL EXECUTOR
 // =====================
 const executeBtn = document.getElementById('executeBtn');
@@ -984,55 +1168,65 @@ function getExecuteUrl() {
 }
 
 executeBtn.addEventListener('click', async () => {
-  if (!currentResultData || !currentResultData.curl) return;
+  const curlCmd = currentResultData && currentResultData.curl;
+  if (!curlCmd) {
+    showError('No curl command to execute.');
+    return;
+  }
 
   executeBtn.disabled = true;
   executeSpinner.classList.remove('hidden');
-  executeStatus.textContent = 'Executing...';
+  executeStatus.textContent = 'Executing request...';
   executeStatus.classList.remove('hidden');
   executeResult.classList.add('hidden');
+  hideError();
 
   try {
-    const res = await fetchWithRetry(getExecuteUrl(), {
+    const execUrl = getExecuteUrl();
+    const res = await fetch(execUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ curl: currentResultData.curl }),
+      body: JSON.stringify({ curl: curlCmd }),
       signal: AbortSignal.timeout(35_000),
     });
 
+    const data = await res.json().catch(() => null);
+
     if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      throw new HttpError(res.status, body?.message || `Execute failed: ${res.status}`);
+      const msg = (data && data.message) || `Execute failed with status ${res.status}`;
+      throw new Error(msg);
     }
 
-    const data = await res.json();
+    if (!data) {
+      throw new Error('Empty response from execute endpoint');
+    }
 
     // Status badge
     const isOk = data.status >= 200 && data.status < 400;
-    executeStatusBadge.textContent = `${data.status} ${data.statusText}`;
+    executeStatusBadge.textContent = `${data.status} ${data.statusText || ''}`;
     executeStatusBadge.className = 'execute-status-badge ' + (isOk ? 'status-ok' : 'status-error');
 
     // Duration
-    executeDuration.textContent = `${data.duration}ms`;
+    executeDuration.textContent = `${data.duration || 0}ms`;
 
     // Body — try to pretty-print JSON
-    let bodyDisplay = data.body || '(empty)';
+    let bodyDisplay = data.body || '(empty response body)';
     try {
       const parsed = JSON.parse(data.body);
       bodyDisplay = JSON.stringify(parsed, null, 2);
-    } catch { /* not JSON */ }
+    } catch { /* not JSON, show raw */ }
     executeBody.textContent = bodyDisplay;
 
     // Headers
     let headersDisplay = '';
-    if (data.headers) {
+    if (data.headers && typeof data.headers === 'object') {
       for (const [k, v] of Object.entries(data.headers)) {
         headersDisplay += `${k}: ${v}\n`;
       }
     }
-    executeHeaders.textContent = headersDisplay || '(none)';
+    executeHeaders.textContent = headersDisplay || '(no headers)';
 
-    // Show body tab by default
+    // Show body tab by default, reset tabs
     document.querySelector('.execute-body').classList.remove('hidden');
     document.querySelector('.execute-headers').classList.add('hidden');
     document.querySelectorAll('.execute-tabs [data-exec-tab]').forEach((btn) => {
@@ -1040,8 +1234,14 @@ executeBtn.addEventListener('click', async () => {
     });
 
     executeResult.classList.remove('hidden');
+    executeResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (err) {
-    showError(formatError(err));
+    const msg = err.name === 'TimeoutError'
+      ? 'Execute timed out after 35s.'
+      : err.message === 'Failed to fetch'
+        ? 'Cannot reach backend. Is it running?'
+        : err.message || 'Unknown execute error';
+    showError(msg);
   } finally {
     executeBtn.disabled = false;
     executeSpinner.classList.add('hidden');

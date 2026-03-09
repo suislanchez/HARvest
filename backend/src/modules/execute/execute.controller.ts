@@ -1,4 +1,5 @@
 import { Controller, Post, Body, HttpException, HttpStatus } from '@nestjs/common';
+import { HarToCurlService } from '../analysis/har-to-curl.service';
 
 interface ExecuteRequest {
   curl: string;
@@ -57,45 +58,17 @@ function isBlockedUrl(urlStr: string): string | null {
   return null;
 }
 
-function parseCurlCommand(curlStr: string): { method: string; url: string; headers: Record<string, string>; body: string | null } {
-  const result = { method: 'GET', url: '', headers: {} as Record<string, string>, body: null as string | null };
-
-  const urlMatch = curlStr.match(/curl\s+'([^']+)'/) || curlStr.match(/curl\s+"([^"]+)"/) || curlStr.match(/curl\s+(\S+)/);
-  if (urlMatch) result.url = urlMatch[1];
-
-  const methodMatch = curlStr.match(/-X\s+'?([A-Z]+)'?/) || curlStr.match(/--request\s+'?([A-Z]+)'?/);
-  if (methodMatch) result.method = methodMatch[1];
-
-  const headerRegex = /-H\s+'([^']+)'/g;
-  let hMatch;
-  while ((hMatch = headerRegex.exec(curlStr)) !== null) {
-    const colonIdx = hMatch[1].indexOf(':');
-    if (colonIdx > 0) {
-      const name = hMatch[1].slice(0, colonIdx).trim();
-      const value = hMatch[1].slice(colonIdx + 1).trim();
-      result.headers[name] = value;
-    }
-  }
-
-  const bodyMatch = curlStr.match(/(?:-d|--data|--data-raw|--data-binary)\s+'([^']*(?:\\.[^']*)*)'/) ||
-                    curlStr.match(/(?:-d|--data|--data-raw|--data-binary)\s+"([^"]*(?:\\.[^"]*)*)"/);
-  if (bodyMatch) {
-    result.body = bodyMatch[1];
-    if (result.method === 'GET') result.method = 'POST';
-  }
-
-  return result;
-}
-
 @Controller('execute')
 export class ExecuteController {
+  private readonly curlService = new HarToCurlService();
+
   @Post()
   async execute(@Body() body: ExecuteRequest) {
     if (!body.curl || typeof body.curl !== 'string') {
       throw new HttpException('Missing curl command', HttpStatus.BAD_REQUEST);
     }
 
-    const parsed = parseCurlCommand(body.curl);
+    const parsed = this.curlService.parseCurlToRequest(body.curl);
 
     if (!parsed.url) {
       throw new HttpException('Could not parse URL from curl command', HttpStatus.BAD_REQUEST);

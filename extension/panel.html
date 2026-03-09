@@ -88,12 +88,19 @@
       </div>
       <p id="reason" class="reason"></p>
       <div class="curl-container">
-        <pre><code id="curlOutput"></code></pre>
-        <div class="export-group">
-          <button class="btn btn-small active" data-format="curl">curl</button>
-          <button class="btn btn-small" data-format="fetch">fetch</button>
-          <button class="btn btn-small" data-format="axios">axios</button>
-          <button class="btn btn-small" data-format="python">Python</button>
+        <div id="curlHighlighted" class="curl-highlighted"><code id="curlOutput"></code></div>
+        <textarea id="curlEditor" class="curl-editor hidden" spellcheck="false"></textarea>
+        <div class="curl-toolbar">
+          <div class="export-group">
+            <button class="btn btn-small active" data-format="curl">curl</button>
+            <button class="btn btn-small" data-format="fetch">fetch</button>
+            <button class="btn btn-small" data-format="axios">axios</button>
+            <button class="btn btn-small" data-format="python">Python</button>
+          </div>
+          <div class="curl-actions">
+            <button id="editToggle" class="btn btn-small">Edit</button>
+            <button id="secretToggle" class="btn btn-small" title="Show/hide secrets">Reveal</button>
+          </div>
         </div>
       </div>
       <div class="execute-row">
