@@ -1,22 +1,19 @@
 # HARvest API Reverse Engineer
 
-Reverse engineer any API from your browser. Upload a HAR file, describe what you're looking for in plain English, get a ready-to-use curl command.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#) [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](#) [![NestJS](https://img.shields.io/badge/NestJS-11-red)](#) [![Next.js](https://img.shields.io/badge/Next.js-16-black)](#) [![Playwright](https://img.shields.io/badge/tested%20with-Playwright-45ba63)](#)
 
-## How It Works
-
-1. **Upload** a `.har` file (browser DevTools → Network → Export HAR)
-2. **Describe** the API you're looking for (e.g., "the weather forecast endpoint")
-3. **Get** a curl command for the matching request, ready to copy and execute
-4. **Run it** directly from the browser via the built-in execution proxy
+> Reverse engineer any API from your browser. Upload a HAR file, describe what you're looking for in plain English, get a ready-to-use curl command.
 
 An 8-layer filtering pipeline removes ~85% of noise (static assets, tracking pixels, CORS preflights, redirects), deduplicates repeated requests, and summarizes what's left into a token-efficient format. An LLM semantically matches your description to the right request. The curl command is generated deterministically from the original HAR entry — the LLM never touches curl generation, so there's zero hallucination.
 
 **Works with cloud APIs or 100% locally** — run with OpenAI, Groq (Llama-3.3-70b), or Ollama for zero-cost, fully private analysis. Provider fallback chains ensure resilience when any single provider is down.
 
-## Setup
+---
+
+## Quick Start
 
 ```bash
-git clone <repo-url> && cd harvest-api
+git clone https://github.com/suislanchez/reverse-eng-api-requests.git && cd reverse-eng-api-requests
 
 # Option A: Cloud API (Groq — fast, cheap)
 echo "GROQ_API_KEY=your_key_here" > .env
@@ -35,25 +32,33 @@ npm install
 npm run dev             # Opens http://localhost:3000
 ```
 
-### Environment Variables
+## How It Works
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `LLM_PROVIDER` | No | `groq` | LLM backend: `local`, `groq`, or `openai` |
-| `LLM_FALLBACK` | No | — | Comma-separated fallback chain (e.g. `groq,local`) |
-| `GROQ_API_KEY` | If groq | — | Groq API key (Llama-3.3-70b) |
-| `OPENAI_API_KEY` | If openai | — | OpenAI API key (GPT-4o-mini) |
-| `LOCAL_LLM_MODEL` | No | `qwen2.5:3b` | Ollama model name for local mode |
-| `CORS_ORIGIN` | No | `http://localhost:3000` | Allowed CORS origin |
+1. **Upload** a `.har` file (browser DevTools → Network → Export HAR)
+2. **Describe** the API you're looking for (e.g., "the weather forecast endpoint")
+3. **Get** a curl command for the matching request, ready to copy and execute
+4. **Run it** directly from the browser via the built-in execution proxy
 
-### LLM Provider Comparison
+### Data Flow
 
-| Provider | Model | Accuracy | Latency | Cost | Privacy |
-|----------|-------|----------|---------|------|---------|
-| **Local (Ollama)** | qwen2.5:7b | **98.4%** | ~20s | **$0.00** | Data stays local |
-| **Local (Ollama)** | phi4-mini | 90.5% | **~3s** | **$0.00** | Data stays local |
-| **Groq** | Llama-3.3-70b | 100% | ~0.5s | ~$0.0005/q | Cloud API |
-| **OpenAI** | GPT-4o-mini | 100% | ~2s | ~$0.0002/q | Cloud API |
+```
+Upload .har → Parse → 8-layer filter (~85% removed) → Deduplicate → Summarize
+    → Token overflow check → LLM (with retry + timeout) → Match index
+    → Deterministic curl generation → Display
+    → (Optional) Execute via SSRF proxy → Show response + diff
+```
+
+### Token Efficiency
+
+200 raw entries → 12 after filtering → 5 unique after dedup → ~100 tokens of LLM input.
+
+| HAR Size | Naive cost | HARvest | Savings |
+|----------|-----------|---------|---------|
+| 20 entries | ~$0.05 | ~$0.0007 | 98.6% |
+| 200 entries | ~$0.32 | ~$0.002 | 99.4% |
+| 2000 entries | ~$3.20 | ~$0.012 | 99.6% |
+
+---
 
 ## Features
 
@@ -70,16 +75,29 @@ npm run dev             # Opens http://localhost:3000
 - **HAR inspector** — sortable, filterable table of all requests
 - **Collection history** — saved analyses via sidebar (`H` key)
 
-### Fault Tolerance
+---
 
-- **LLM retry with backoff** — automatic retries on timeout, 429, and 5xx errors with exponential backoff across all providers
-- **Per-attempt timeouts** — 30s for cloud providers, 60s for local models, enforced via AbortController
-- **Token overflow protection** — summaries exceeding ~25k tokens are truncated at the last complete line
-- **Frontend cancellation** — cancel in-progress analysis with a single click; 90s analysis timeout, 30s execution timeout
-- **CLI signal handling** — SIGINT/SIGTERM cleanly abort in-progress LLM calls with a 60s timeout
-- **Health check endpoint** — `GET /api/health` returns uptime, memory, and status
-- **Graceful shutdown** — NestJS shutdown hooks for clean process termination
-- **Extension resilience** — fetch retry with backoff, connection status indicator (green/yellow/red), storage error handling, live capture size limits (50MB warn, 100MB stop)
+## LLM Providers
+
+| Provider | Model | Accuracy | Latency | Cost | Privacy |
+|----------|-------|----------|---------|------|---------|
+| **Local (Ollama)** | qwen2.5:7b | **98.4%** | ~20s | **$0.00** | Data stays local |
+| **Local (Ollama)** | phi4-mini | 90.5% | **~3s** | **$0.00** | Data stays local |
+| **Groq** | Llama-3.3-70b | 100% | ~0.5s | ~$0.0005/q | Cloud API |
+| **OpenAI** | GPT-4o-mini | 100% | ~2s | ~$0.0002/q | Cloud API |
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `LLM_PROVIDER` | No | `groq` | LLM backend: `local`, `groq`, or `openai` |
+| `LLM_FALLBACK` | No | — | Comma-separated fallback chain (e.g. `groq,local`) |
+| `GROQ_API_KEY` | If groq | — | Groq API key (Llama-3.3-70b) |
+| `OPENAI_API_KEY` | If openai | — | OpenAI API key (GPT-4o-mini) |
+| `LOCAL_LLM_MODEL` | No | `qwen2.5:3b` | Ollama model name for local mode |
+| `CORS_ORIGIN` | No | `http://localhost:3000` | Allowed CORS origin |
+
+---
 
 ## CLI
 
@@ -96,7 +114,7 @@ npx harvest-api capture.har -d "login endpoint" --json --top 3
 
 ## Chrome Extension
 
-Install the extension from `extension/` for one-click HAR capture and analysis directly in DevTools.
+Install from `extension/` for one-click HAR capture and analysis directly in DevTools.
 
 - Live capture mode with size limits
 - Connection status indicator (green = connected, red = backend down)
@@ -106,11 +124,11 @@ Install the extension from `extension/` for one-click HAR capture and analysis d
 
 See [`extension/README.md`](./extension/README.md) for setup instructions.
 
-## Playwright E2E Testing
+---
 
-The app is tested end-to-end using Playwright — real browser automation that uploads HAR files through the actual UI, runs the full analysis pipeline, and verifies results.
+## Testing
 
-### 49 Browser Tests
+### 49 Playwright Browser Tests
 
 ```bash
 npm run playwright:install    # Install Chromium (first time only)
@@ -121,12 +139,12 @@ npm run test:e2e:ui           # Watch tests run in visual browser UI
 npx playwright test --headed  # See the real Chrome window
 ```
 
-| Test File | Tests | What It Covers |
-|-----------|-------|----------------|
+| Test File | Tests | Coverage |
+|-----------|-------|----------|
 | `smoke.spec.ts` | 7 | Page load, header, hero text, stats, footer |
 | `upload.spec.ts` | 7 | File upload, validation, error handling, replacement |
 | `analysis-mock.spec.ts` | 8 | Full flow with mocked backend, pipeline stepper, code tabs |
-| `analysis-live.spec.ts` | 4 | **Real HAR → real OpenAI → verify in browser** |
+| `analysis-live.spec.ts` | 4 | Real HAR → real OpenAI → verify in browser |
 | `proxy-execute.spec.ts` | 5 | Execute curl, response viewer, headers tab |
 | `collection.spec.ts` | 6 | History sidebar, auto-save, clear all |
 | `keyboard.spec.ts` | 5 | Shortcut keys: ?, H, I, Escape |
@@ -135,7 +153,7 @@ npx playwright test --headed  # See the real Chrome window
 
 ### 16 Real-World HAR Captures
 
-Playwright visits real public websites, records all network traffic into HAR files, then those HARs are fed through the analysis pipeline to verify it finds the right API. Captured via two scripts:
+Playwright visits real public websites, records all network traffic into HAR files, then those HARs are fed through the analysis pipeline to verify it finds the right API.
 
 ```bash
 npm run capture:hars          # Original 6 targets
@@ -143,7 +161,8 @@ npm run capture:hars:extended # Extended 10 targets
 npm run capture:all           # Both
 ```
 
-#### Original Captures
+<details>
+<summary>All 16 capture targets</summary>
 
 | HAR File | Source | Entries | Test Query |
 |----------|--------|---------|------------|
@@ -153,11 +172,6 @@ npm run capture:all           # Both
 | `hackernews-firebase.har` | news.ycombinator.com | 6 | "Find the API that loads the front page stories" |
 | `dog-ceo-random.har` | dog.ceo | 87 | "Find the random dog image API" |
 | `jsonplaceholder-todos.har` | jsonplaceholder.typicode.com | 17 | "Find the REST API that fetches todos" |
-
-#### Extended Captures
-
-| HAR File | Source | Entries | Test Query |
-|----------|--------|---------|------------|
 | `github-trending.har` | github.com/trending | 156 | "Find the API that loads trending repositories" |
 | `wikipedia-search.har` | en.wikipedia.org | 37 | "Find the Wikipedia search API" |
 | `countries-graphql.har` | countries.trevorblades.com | 5 | "Find the GraphQL API that queries country data" |
@@ -171,20 +185,19 @@ npm run capture:all           # Both
 
 **Total: ~54 MB, 1,043 network entries from real browser traffic.**
 
+</details>
+
 ### Backend Test Suite
 
 221 unit tests + comprehensive eval & e2e suites across 20+ files in Jest.
 
 ```bash
 cd backend
-
 npx jest                                           # All unit tests (221 tests, no API key needed)
 npx jest har-parser har-to-curl analysis.service   # Core unit tests
 npx jest e2e-local-pipeline --testTimeout=300000   # Local LLM E2E (needs Ollama, no API key)
 npx jest e2e-pipeline --testTimeout=120000         # Cloud LLM E2E (needs API key)
 npx jest eval-local-full --testTimeout=900000 --runInBand  # Full 63-case local benchmark
-npx jest eval-local --testTimeout=600000 --runInBand       # Quick 13-case, 6 models
-npx jest ablation --testTimeout=600000 --runInBand         # Ablation study (needs Groq key)
 ```
 
 ### Benchmark Results (63 Cases)
@@ -195,6 +208,30 @@ npx jest ablation --testTimeout=600000 --runInBand         # Ablation study (nee
 | Llama-3.3-70b (Groq) | 100% | 6/6 | 24/24 | 23/23 | 10/10 | ~$0.03 |
 | **qwen2.5:7b (local)** | **98.4%** | 6/6 | 24/24 | 22/23 | 10/10 | **$0.00** |
 | phi4-mini (local) | 90.5% | 5/6 | 22/24 | 21/23 | 9/10 | **$0.00** |
+
+---
+
+## Fault Tolerance
+
+- **LLM retry with backoff** — automatic retries on timeout, 429, and 5xx errors with exponential backoff across all providers
+- **Per-attempt timeouts** — 30s for cloud providers, 60s for local models, enforced via AbortController
+- **Token overflow protection** — summaries exceeding ~25k tokens are truncated at the last complete line
+- **Frontend cancellation** — cancel in-progress analysis with a single click; 90s analysis timeout, 30s execution timeout
+- **CLI signal handling** — SIGINT/SIGTERM cleanly abort in-progress LLM calls with a 60s timeout
+- **Health check endpoint** — `GET /api/health` returns uptime, memory, and status
+- **Graceful shutdown** — NestJS shutdown hooks for clean process termination
+- **Extension resilience** — fetch retry with backoff, connection status indicator (green/yellow/red), storage error handling, live capture size limits (50MB warn, 100MB stop)
+
+## Security
+
+- **SSRF protection** — blocks private IPs, localhost, link-local, cloud metadata, IPv6-mapped addresses
+- **Rate limiting** — 5 req/10s burst + 20 req/min sustained
+- **No secrets in client** — API keys stay on the backend
+- **Memory-only uploads** — HAR files never written to disk
+- **Shell-safe curl** — all values single-quoted, no shell expansion
+- **Graceful shutdown** — clean process termination via NestJS shutdown hooks
+
+---
 
 ## Architecture
 
@@ -226,34 +263,6 @@ harvest-api/
 └── docs/                 Architecture docs and research notes
 ```
 
-### Data Flow
-
-```
-Upload .har → Parse → 8-layer filter (~85% removed) → Deduplicate → Summarize
-    → Token overflow check → LLM (with retry + timeout) → Match index
-    → Deterministic curl generation → Display
-    → (Optional) Execute via SSRF proxy → Show response + diff
-```
-
-### Token Efficiency
-
-200 raw entries → 12 after filtering → 5 unique after dedup → ~100 tokens of LLM input.
-
-| HAR Size | Naive cost | HARvest | Savings |
-|----------|-----------|---------|---------|
-| 20 entries | ~$0.05 | ~$0.0007 | 98.6% |
-| 200 entries | ~$0.32 | ~$0.002 | 99.4% |
-| 2000 entries | ~$3.20 | ~$0.012 | 99.6% |
-
-## Security
-
-- **SSRF protection** — blocks private IPs, localhost, link-local, cloud metadata, IPv6-mapped addresses
-- **Rate limiting** — 5 req/10s burst + 20 req/min sustained
-- **No secrets in client** — API keys stay on the backend
-- **Memory-only uploads** — HAR files never written to disk
-- **Shell-safe curl** — all values single-quoted, no shell expansion
-- **Graceful shutdown** — clean process termination via NestJS shutdown hooks
-
 ## Tech Stack
 
 | | Technology |
@@ -265,13 +274,6 @@ Upload .har → Parse → 8-layer filter (~85% removed) → Deduplicate → Summ
 | Testing | Jest 30, Playwright |
 | Extension | Chrome DevTools API, Manifest V3 |
 
-## Health Check
-
-```bash
-curl http://localhost:3001/api/health
-# {"status":"ok","uptime":123,"timestamp":"2026-03-01T...","memory":{"rss":85,"heapUsed":42,"heapTotal":64}}
-```
-
 ## Keyboard Shortcuts
 
 | Key | Action |
@@ -280,6 +282,13 @@ curl http://localhost:3001/api/health
 | `H` | Toggle collection history |
 | `I` | Toggle tech info |
 | `?` | Toggle keyboard shortcuts |
+
+## Health Check
+
+```bash
+curl http://localhost:3001/api/health
+# {"status":"ok","uptime":123,"timestamp":"...","memory":{"rss":85,"heapUsed":42,"heapTotal":64}}
+```
 
 ## Docs
 
